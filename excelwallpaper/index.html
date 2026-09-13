@@ -67,6 +67,7 @@
 
   /* —— 面板内部结构高度 —— */
   --toolbar-h:       50px;
+  --wstabs-h:        46px;   /* 工作区标签页（标签 30 + 滚动条 15，实测 Windows 上滚动条占 15px） */
   --template-h:      40px;   /* 预设模板按钮行 */
   --custom-h:        32px;   /* 自定义模板行 */
   --hint-h:          28px;   /* 底部键盘提示行 */
@@ -537,6 +538,123 @@ body{
   background: linear-gradient(0deg, rgba(255,255,255,.94), rgba(238,242,251,.80));
   padding: 5px 10px 6px;
 }
+
+/* ==========================================================================
+   工作区标签页（浏览器标签样式）
+   每个工作区连列结构带数据完全独立；点标签即切换，内容实时保存。
+   ========================================================================== */
+.ws-tabs{
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: var(--wstabs-h);
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgba(238, 242, 251, .55);
+}
+.ws-tab-strip{
+  flex: 1 1 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* 滚动条要够粗才好抓。
+     原来用 scrollbar-width:thin + 5px，实测容器 37px 里滚动条只占 10px、
+     滑块约半个标签宽，用户反馈"拖不动" —— 其实是细到抓不住。
+     现在加粗到 9px 并给底色，一眼能看见、手也能按住。 */
+  scrollbar-width: auto;
+  scrollbar-color: var(--primary-light) rgba(201, 212, 238, .45);
+}
+.ws-tab-strip::-webkit-scrollbar{ height: 9px; }
+.ws-tab-strip::-webkit-scrollbar-track{
+  background: rgba(201, 212, 238, .45);
+  border-radius: 5px;
+}
+.ws-tab-strip::-webkit-scrollbar-thumb{
+  background: var(--primary-light);
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, .6);
+}
+.ws-tab-strip::-webkit-scrollbar-thumb:hover{ background: var(--accent); }
+
+/* 单个标签 */
+.ws-tab{
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 190px;
+  height: 30px;
+  margin-bottom: 1px;
+  padding: 0 4px 0 11px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, .62);
+  border: 1px solid var(--border-soft);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease;
+}
+.ws-tab:hover{ background: #FFFFFF; color: var(--primary-dark); }
+/* 当前工作区：白底 + 靛蓝顶条，和浏览器活动标签一个观感 */
+.ws-tab.on{
+  color: var(--primary-dark);
+  background: #FFFFFF;
+  font-weight: 700;
+  box-shadow: inset 0 3px 0 0 var(--primary);
+  border-color: var(--border);
+}
+.ws-tab .ws-name{
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-tab .ws-x{
+  flex: 0 0 auto;
+  width: 16px; height: 16px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-placeholder);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.ws-tab .ws-x:hover{ color: #FFFFFF; background: var(--danger); }
+.ws-tab .ws-dot{                 /* 有内容的工作区标一个小点 */
+  flex: 0 0 auto;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+/* 新建工作区按钮 */
+.ws-tab-add{
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  margin-bottom: 4px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--primary-dark);
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all .13s ease;
+}
+.ws-tab-add:hover{ color: #FFFFFF; background: var(--primary); border-color: var(--primary); }
+.ws-tab-add:active{ transform: scale(.92); }
 
 /* 预设模板行 */
 .template-row{
@@ -1249,6 +1367,12 @@ body{
     <button class="btn btn-ghost" id="btn-import" type="button">导入JSON</button>
   </div>
 
+  <!-- 工作区标签页（浏览器标签样式）：每个工作区连列结构带数据完全独立，切换即实时切换 -->
+  <div class="ws-tabs" id="ws-tabs">
+    <button class="ws-tab-add" id="ws-add" type="button" title="新建工作区">＋</button>
+    <div class="ws-tab-strip" id="ws-strip"></div>
+  </div>
+
   <!-- z-index 3：Tabulator 表格 -->
   <div class="table-area">
     <div id="course-table"></div>
@@ -1435,8 +1559,11 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
      0. 常量
      ====================================================================== */
 
-  // localStorage 键名（每壁纸约 100KB 配额，注意控制体积）
-  var K_DATA      = "courseWallpaper.data.v1";        // 表格数据 + 列配置
+  // 数据模型：工作区（workspaces）+ 模板（templates）两层
+  //   —— 每个工作区连【列结构】带【数据】完全独立，切换工作区就是换一整套；
+  //   —— 预设（学习/工作/生活）与自定义模板都只是「一套列结构」，载入时套用到当前工作区。
+  // 仍沿用 K_DATA 这个键名（不新开键），内部结构升级为 workspaces，旧数据自动迁移。
+  var K_DATA      = "courseWallpaper.data.v1";        // 工作区集合 + 当前工作区
   var K_LAYOUT    = "courseWallpaper.layout.v1";      // 面板位置与尺寸
   var K_TEMPLATES = "courseWallpaper.templates.v1";   // 自定义模板列表
 
@@ -1517,11 +1644,13 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
      2. 运行时状态
      ====================================================================== */
   var state = {
-    columnConfig: [],                                    // [{field,title,editor}] 独立维护并持久化
-    rows: [],                                            // 表格行数据
+    columnConfig: [],                                    // 当前工作区的列配置（= workspaces[activeWsId].columns）
+    rows: [],                                            // 当前工作区的行数据（= workspaces[activeWsId].rows）
+    workspaces: {},                                      // { id → { name, columns:[], rows:[] } }
+    activeWsId: null,                                    // 当前工作区 id
     layout: { x: null, y: null, width: null, height: null, scale: null, visible: null },
     templates: [],                                       // 自定义模板 [{name, columns}]
-    activeTemplate: "study"                              // 当前模板标识（用于按钮高亮）
+    activeTemplate: null                                 // 当前列结构对应的高亮模板（预设 key 或自定义名）
   };
 
   // 优先级：用户属性 > localStorage > 默认值
@@ -1824,16 +1953,175 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
   }
 
   /* ======================================================================
-     5. 数据持久化
+     5. 数据持久化（工作区模型）
      ====================================================================== */
 
-  // 表格数据与列配置一起存入 localStorage
+  // 实时保存：把表格里当前的内容写回「当前工作区」，再整体落盘。
+  // 任何改动（编辑单元格、增删行列、切工作区、载入模板）都会走这里，所以内容不会丢。
   function persistData() {
     if (!table) return;
     state.rows = table.getData().map(cleanRow);
-    writeJSON(K_DATA, { columnConfig: state.columnConfig, rows: state.rows });
+    var ws = state.workspaces[state.activeWsId];
+    if (ws) {
+      ws.columns = normalizeColumns(state.columnConfig);
+      ws.rows = state.rows;
+    }
+    writeJSON(K_DATA, {
+      version: 2,
+      workspaces: state.workspaces,
+      activeWsId: state.activeWsId,
+      // 兼容字段：仍写一份当前工作区的列与行，方便外部工具/旧版本读取
+      columnConfig: state.columnConfig,
+      rows: state.rows
+    });
     updateMeta();
     updateTableAreaHeight();      // 行数变化 → 面板高度同步伸缩
+  }
+
+  // ---------- 工作区 ----------
+  var WS_DEFAULT_NAME = "工作区";
+  // 迁移 v1.5 数据时用到的旧模板 id 前缀（"tpl:<名字>"）
+  var CUSTOM_TPL_PREFIX = "tpl:";
+
+  // 生成不重名的工作区名
+  function nextWsName() {
+    var used = {};
+    Object.keys(state.workspaces).forEach(function (k) { used[state.workspaces[k].name] = 1; });
+    if (!used[WS_DEFAULT_NAME]) return WS_DEFAULT_NAME;
+    var i = 2;
+    while (used[WS_DEFAULT_NAME + " " + i]) i++;
+    return WS_DEFAULT_NAME + " " + i;
+  }
+
+  // 工作区是否有实质内容（用于删除/覆盖前的提示）
+  function workspaceHasContent(id) {
+    var ws = state.workspaces[id];
+    if (!ws) return false;
+    if (id === state.activeWsId) {
+      var rows = table ? table.getData() : (ws.rows || []);
+      return rows.some(function (r) {
+        return (ws.columns || []).some(function (c) {
+          var v = r ? r[c.field] : undefined;
+          return v === true || (v !== null && v !== undefined && String(v).trim() !== "");
+        });
+      });
+    }
+    return (ws.rows || []).some(function (r) {
+      return (ws.columns || []).some(function (c) {
+        var v = r ? r[c.field] : undefined;
+        return v === true || (v !== null && v !== undefined && String(v).trim() !== "");
+      });
+    });
+  }
+
+  // 把当前表格内容存回当前工作区（切走之前必须调用，否则会丢）
+  function saveCurrentWorkspace() {
+    if (!table) return;
+    var ws = state.workspaces[state.activeWsId];
+    if (!ws) return;
+    ws.columns = normalizeColumns(state.columnConfig);
+    ws.rows = table.getData().map(cleanRow);
+  }
+
+  // 把某个工作区装载进界面
+  function loadWorkspaceIntoUI(id) {
+    var ws = state.workspaces[id];
+    if (!ws) return;
+    state.activeWsId = id;
+    state.columnConfig = normalizeColumns(ws.columns);
+    if (!state.columnConfig.length) {
+      // 兜底：列被删空时补一列，保证表格有效
+      state.columnConfig = [{ field: "col_1", title: "内容", editor: "input" }];
+      ws.columns = state.columnConfig;
+    }
+    state.rows = (ws.rows || []).map(cleanRow);
+    if (!state.rows.length) state.rows = [blankRow()];
+    syncFieldSeq();
+    applyColumnChange();
+    renderWorkspaceTabs();
+    renderTemplates();
+    persistData();
+  }
+
+  // 切换工作区
+  function switchWorkspace(id) {
+    if (id === state.activeWsId) return;
+    if (!state.workspaces[id]) return;
+    saveCurrentWorkspace();        // 先把当前内容落回它自己那一格
+    loadWorkspaceIntoUI(id);
+  }
+
+  // 新建工作区并切过去
+  // 新工作区【不】自动套预设模板（预设要用户主动载入，载入时会弹窗确认），
+  // 但也不能是 0 列的空表，所以给一列「内容」+ 一行空白，能立刻开始打字。
+  function createWorkspace() {
+    saveCurrentWorkspace();
+    var id = "ws_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    state.workspaces[id] = {
+      name: nextWsName(),
+      columns: [{ field: "col_1", title: "内容", editor: "input" }],
+      rows: [{ col_1: "" }]
+    };
+    loadWorkspaceIntoUI(id);
+    walkerReact("happy");                // 新建 = 开心（和「添加行/列」一致）
+    toast("已新建「" + state.workspaces[id].name + "」（空工作区，可点下方模板载入列结构）");
+  }
+
+  // 关闭工作区（至少保留一个）
+  // 按需求：删除工作区【一律】先提醒（不能因为有内容才提醒）。
+  // 提醒里会区分「有内容」和「是空的」两种措辞，让用户知道自己在删什么。
+  function askCloseWorkspace(id) {
+    var ws = state.workspaces[id];
+    if (!ws) return;
+    var ids = Object.keys(state.workspaces);
+    if (ids.length <= 1) { toast("至少要保留一个工作区", true); return; }
+
+    var hasContent = workspaceHasContent(id);
+
+    var doClose = function () {
+      // 若关的是当前工作区，先切到别的再删
+      if (id === state.activeWsId) {
+        var other = ids.filter(function (x) { return x !== id; })[0];
+        saveCurrentWorkspace();
+        delete state.workspaces[id];
+        loadWorkspaceIntoUI(other);
+      } else {
+        delete state.workspaces[id];
+        persistData();
+        renderWorkspaceTabs();
+      }
+      walkerReact("shock");              // 删除 = 惊讶（和「删除行/列」一致）
+      toast("已删除工作区「" + ws.name + "」");
+    };
+
+    openConfirm({
+      title: "删除工作区？",
+      html: "即将删除工作区 <b>" + escapeHtml(ws.name) + "</b>。<br>" +
+            (hasContent
+              ? "它有内容，<b>列结构和所有数据会一起删除</b>，无法恢复。"
+              : "它目前是空的（只有一列「内容」），删除后不影响其它工作区。"),
+      okText: "确认删除",
+      onOk: doClose
+    });
+  }
+
+  // 重命名工作区
+  function askRenameWorkspace(id) {
+    var ws = state.workspaces[id];
+    if (!ws) return;
+    openName({
+      title: "重命名工作区",
+      label: "工作区名称",
+      placeholder: "例如：本学期 / 暑假计划",
+      defaultValue: ws.name,
+      onOk: function (name) {
+        ws.name = name;
+        persistData();
+        renderWorkspaceTabs();
+        toast("已重命名为「" + name + "」");
+        return true;
+      }
+    });
   }
 
   // 只保留 columnConfig 声明的字段，并按列类型归一化值类型
@@ -1848,22 +2136,93 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     return out;
   }
 
-  // 载入本地数据；无数据时使用「学习」模板 + 一行示例
+  // 载入本地数据；无数据时建一个空工作区
+  //
+  // 迁移链（都实测过，别删）：
+  //   v1 旧版：{ columnConfig, rows }                      —— 单表格
+  //   v1.5  ：{ rowsByTemplate, activeTplId }              —— 每模板各一份行数据
+  //   v2    ：{ workspaces:{id:{name,columns,rows}}, activeWsId }  —— 工作区
   function loadData() {
     var saved = readJSON(K_DATA);
-    if (saved && Array.isArray(saved.columnConfig) && saved.columnConfig.length) {
-      state.columnConfig = normalizeColumns(saved.columnConfig);   // 列类型随数据恢复
-      state.rows = Array.isArray(saved.rows) ? saved.rows.map(cleanRow) : [];
+
+    if (saved && saved.workspaces && typeof saved.workspaces === "object"
+        && Object.keys(saved.workspaces).length) {
+      // 已是 v2
+      state.workspaces = saved.workspaces;
+      state.activeWsId = (saved.activeWsId && saved.workspaces[saved.activeWsId])
+        ? saved.activeWsId : Object.keys(saved.workspaces)[0];
+      var cur = state.workspaces[state.activeWsId];
+      state.columnConfig = normalizeColumns(cur.columns);
+      state.rows = (cur.rows || []).map(cleanRow);
+      if (!state.columnConfig.length) state.columnConfig = [{ field: "col_1", title: "内容", editor: "input" }];
+      if (!state.rows.length) state.rows = [blankRow()];
       syncFieldSeq();
-    } else {
-      state.columnConfig = normalizeColumns(TEMPLATES.study.columns);
-      state.rows = [{
-        course: "高等数学",
-        yuketang: true, yunbanke: false, zhihuishu: false,
-        mooc: false, cgpt: false, shiyan: false, gongtu: false,
-        remark: "周一 1-2 节 · 教三楼 305"
-      }];
+      return;
     }
+
+    if (saved && Array.isArray(saved.columnConfig) && saved.columnConfig.length) {
+      // 从 v1 / v1.5 迁移：把已有内容整体搬进一个工作区，绝不丢数据
+      var legacyId = "ws_migrated";
+      var legacyName = WS_DEFAULT_NAME;
+      if (saved.rowsByTemplate && typeof saved.rowsByTemplate === "object"
+          && Object.keys(saved.rowsByTemplate).length) {
+        // v1.5：把所有模板数据按各自列结构分别建工作区
+        // （列结构取「当前这套」的近似：只有 activeTplId 那套能确定，其余用预设/空列）
+        var activeTpl = saved.activeTplId || Object.keys(saved.rowsByTemplate)[0];
+        var activeWsId = null;
+        Object.keys(saved.rowsByTemplate).forEach(function (tplId) {
+          var cols = null;
+          if (tplId === activeTpl) {
+            cols = normalizeColumns(saved.columnConfig);
+          } else if (PRESET_KEYS.indexOf(tplId) >= 0) {
+            cols = normalizeColumns(TEMPLATES[tplId].columns);
+          } else if (tplId.indexOf(CUSTOM_TPL_PREFIX) === 0) {
+            var tname = tplId.slice(CUSTOM_TPL_PREFIX.length);
+            var found = (state.templates || []).filter(function (t) { return t.name === tname; })[0];
+            cols = found ? normalizeColumns(found.columns) : null;
+          }
+          if (!cols || !cols.length) cols = [{ field: "col_1", title: "内容", editor: "input" }];
+          var id = "ws_" + tplId.replace(/[^a-zA-Z0-9_]/g, "_");
+          var nm = (PRESET_KEYS.indexOf(tplId) >= 0) ? TEMPLATES[tplId].name
+                 : (tplId === activeTpl ? WS_DEFAULT_NAME : tplId.replace(CUSTOM_TPL_PREFIX, ""));
+          state.workspaces[id] = {
+            name: nm,
+            columns: cols,
+            rows: (saved.rowsByTemplate[tplId] || [])
+          };
+          if (tplId === activeTpl) activeWsId = id;
+        });
+        state.activeWsId = activeWsId || Object.keys(state.workspaces)[0];
+      } else {
+        // v1：单表格整体搬进一个工作区
+        var v1Cols = normalizeColumns(saved.columnConfig);
+        state.workspaces[legacyId] = {
+          name: legacyName,
+          columns: v1Cols,
+          rows: Array.isArray(saved.rows) ? saved.rows : []
+        };
+        state.activeWsId = legacyId;
+      }
+      var w = state.workspaces[state.activeWsId];
+      state.columnConfig = normalizeColumns(w.columns);
+      state.rows = (w.rows || []).map(cleanRow);
+      if (!state.columnConfig.length) state.columnConfig = [{ field: "col_1", title: "内容", editor: "input" }];
+      if (!state.rows.length) state.rows = [blankRow()];
+      syncFieldSeq();
+      return;
+    }
+
+    // 全新安装：一个空工作区（不自动套预设 —— 预设由用户主动载入）
+    var freshId = "ws_1";
+    state.workspaces = {};
+    state.workspaces[freshId] = {
+      name: WS_DEFAULT_NAME,
+      columns: [{ field: "col_1", title: "内容", editor: "input" }],
+      rows: [{ col_1: "" }]
+    };
+    state.activeWsId = freshId;
+    state.columnConfig = normalizeColumns(state.workspaces[freshId].columns);
+    state.rows = [{ col_1: "" }];
   }
 
   // 修正自增序号 + 还原当前模板标识
@@ -3117,6 +3476,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
   var TABLE_HEADER_PX = 58;     // 与 --table-header-h 一致
   var TABLE_ROW_PX    = 46;     // 与 --table-row-h 一致
   var TOOLBAR_PX      = 50;     // 工具栏
+  var WSTABS_PX       = 46;     // 工作区标签页（与 --wstabs-h 一致）
   var TEMPLATE_PX     = 72;     // 模板区（预设行 + 自定义行）
   var LANE_PX         = 210;    // 走动区（默认值，JS 会按角色尺寸覆写 --lane-h）
   var HINT_PX         = 28;     // 底部提示行
@@ -3140,7 +3500,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
 
     // 面板高度预算：视口可用高度 - 工具栏 - 模板区 - 走动区 - 提示行。
     // 底部余量取 20px：8px 时面板底边会压到视口下沿（实测提示行溢出面板 1px 被裁掉）。
-    var areaMax = Math.max(120, vh() - 20 - panelTopPx() - laneH - TEMPLATE_PX - TOOLBAR_PX - HINT_PX - 4);
+    var areaMax = Math.max(120, vh() - 20 - panelTopPx() - laneH - TEMPLATE_PX - WSTABS_PX - TOOLBAR_PX - HINT_PX - 4);
 
     var finalH = Math.round(Math.min(wanted, areaMax));
     var prev = parseFloat(doc_css("--table-area-height"));
@@ -3661,48 +4021,57 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
   }
 
   /* ======================================================================
-     12. 模板区（预设三套 + 自定义模板）
+     12. 模板区（官方预设两套以上 + 自定义模板）
+     模板 = 「一套列结构」。把它载入当前工作区时，会覆盖该工作区现有的
+     列结构【和数据】，所以一律弹窗确认（按需求：未保存的内容会被覆盖）。
      ====================================================================== */
 
-  // 载入模板：只换列配置，保留能对应上的行数据
-  // 匹配规则：先按 field 精确匹配；匹配不到再按 title 匹配（兼容自定义模板改键名的情况）
+  // 载入模板到当前工作区（覆盖列结构 + 数据）
+  // 与其他操作不同，这里【必须】先弹窗：用户明确要求载入模板时提示覆盖。
   function loadTemplate(name, columns) {
     var newCols = normalizeColumns(columns);
     if (!newCols.length) { toast("模板列配置无效", true); return; }
 
-    var oldRows = table.getData().map(function (r) {
-      var row = {};
-      state.columnConfig.forEach(function (c) { row[c.field] = r ? r[c.field] : undefined; });
-      return row;
-    });
+    var ws = state.workspaces[state.activeWsId];
+    var wsName = ws ? ws.name : "当前工作区";
+    var colCount = newCols.length;
 
-    // 旧列索引：field → 值来源；title → field
-    var byTitle = {};
-    state.columnConfig.forEach(function (c) { byTitle[c.title] = c.field; });
-
-    state.rows = oldRows.map(function (old) {
-      var out = {};
-      newCols.forEach(function (nc) {
-        var v;
-        if (Object.prototype.hasOwnProperty.call(old, nc.field)) {
-          v = old[nc.field];                                  // ① field 对应
-        } else if (byTitle[nc.title] && Object.prototype.hasOwnProperty.call(old, byTitle[nc.title])) {
-          v = old[byTitle[nc.title]];                         // ② title 对应
-        }
-        // ③ 对应不上的新列留空；②/① 的旧值按新列类型归一化
-        out[nc.field] = (nc.editor === "tickCross")
-          ? (v === true || String(v) === "true")
-          : (v === null || v === undefined ? "" : String(v));
-      });
-      return out;
+    openConfirm({
+      title: "载入模板「" + name + "」？",
+      html: "将把它载入工作区 <b>" + escapeHtml(wsName) + "</b>。<br>" +
+            "该工作区当前的列结构和内容<b>会被完全覆盖</b>（" + colCount + " 列），此操作不可撤销。",
+      okText: "确认覆盖并载入",
+      onOk: function () { applyTemplateToWorkspace(name, newCols); }
     });
+  }
+
+  // 真正执行覆盖
+  function applyTemplateToWorkspace(name, newCols) {
+    var ws = state.workspaces[state.activeWsId];
+    if (!ws) return;
 
     state.columnConfig = newCols;
-    state.activeTemplate = name;
-    syncFieldSeqKeepActive(name);
+    state.rows = [blankRow()];                 // 模板只带列结构，数据从一行空白开始
+    ws.columns = normalizeColumns(newCols);
+    ws.rows = state.rows;
+    // 高亮：列结构与某个模板一致时点亮它
+    state.activeTemplate = (PRESET_KEYS.indexOf(name) >= 0) ? name : name;
+
+    syncFieldSeq();
     applyColumnChange();
+    renderWorkspaceTabs();
     renderTemplates();
-    toast("已载入模板「" + name + "」（保留可对应的数据）");
+    persistData();
+    toast("已把模板「" + name + "」载入「" + ws.name + "」");
+  }
+
+  // 按当前列配置生成一行空数据
+  function blankRow() {
+    var out = {};
+    state.columnConfig.forEach(function (c) {
+      out[c.field] = (c.editor === "tickCross") ? false : "";
+    });
+    return out;
   }
 
   // 重新计算 field 自增序号，但保留指定的模板高亮标识
@@ -3749,7 +4118,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
       chip.className = "tpl-chip";
       chip.setAttribute("role", "button");
       chip.setAttribute("tabindex", "0");
-      chip.title = "左键载入 · 点右侧 ✕ 删除（也可右键或长按）";
+      chip.title = "左键载入 · 双击重命名 · 右键删除（也可长按）";
       chip.appendChild(document.createTextNode(tpl.name));
 
       // 可见的删除按钮
@@ -3769,6 +4138,14 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
       chip.addEventListener("click", function () { loadTemplate(tpl.name, tpl.columns); });
       chip.addEventListener("keydown", function (e) {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); loadTemplate(tpl.name, tpl.columns); }
+        if (e.key === "F2") { e.preventDefault(); askRenameTemplate(idx); }
+      });
+
+      // 双击 → 重命名（和「删除」一样做成显式入口，不然用户不知道能改）
+      chip.addEventListener("dblclick", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        askRenameTemplate(idx);
       });
 
       // 右键 → 删除确认
@@ -3791,17 +4168,99 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     });
   }
 
+  // 渲染工作区标签页（浏览器标签样式）
+  // 点标签 = 切工作区（实时保存）；双击 = 重命名；✕ = 关闭
+  function renderWorkspaceTabs() {
+    var strip = $("ws-strip");
+    if (!strip) return;
+    strip.innerHTML = "";
+
+    Object.keys(state.workspaces).forEach(function (id) {
+      var ws = state.workspaces[id];
+      var on = (id === state.activeWsId);
+
+      var tab = document.createElement("span");
+      tab.className = "ws-tab" + (on ? " on" : "");
+      tab.setAttribute("role", "button");
+      tab.setAttribute("tabindex", "0");
+      tab.title = ws.name + "（双击重命名 · 点 ✕ 关闭）";
+
+      var nm = document.createElement("span");
+      nm.className = "ws-name";
+      nm.textContent = ws.name;
+      tab.appendChild(nm);
+
+      // 有内容的工作区标一个小圆点，一眼能看出哪个用过
+      if (workspaceHasContent(id)) {
+        var dot = document.createElement("span");
+        dot.className = "ws-dot";
+        dot.title = "这个工作区里有内容";
+        tab.appendChild(dot);
+      }
+
+      var x = document.createElement("button");
+      x.type = "button";
+      x.className = "ws-x";
+      x.textContent = "✕";
+      x.title = "关闭工作区";
+      x.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        askCloseWorkspace(id);
+      });
+      x.addEventListener("mousedown", function (e) { e.stopPropagation(); });
+      tab.appendChild(x);
+
+      tab.addEventListener("click", function () { switchWorkspace(id); });
+      tab.addEventListener("dblclick", function (e) {
+        e.preventDefault();
+        askRenameWorkspace(id);
+      });
+      tab.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); switchWorkspace(id); }
+        if (e.key === "F2") { e.preventDefault(); askRenameWorkspace(id); }
+      });
+
+      strip.appendChild(tab);
+    });
+  }
+
+  // 重命名自定义模板
+  // 按需求「支持模板重命名」：双击 chip 或 F2 触发。
+  // 只改名字，列结构不动；若某个工作区正用着这套列结构，重命名不影响它。
+  function askRenameTemplate(idx) {
+    var tpl = state.templates[idx];
+    if (!tpl) return;
+    openName({
+      title: "重命名模板",
+      label: "模板名称",
+      placeholder: "例如：毕业设计 / 周计划",
+      defaultValue: tpl.name,
+      onOk: function (name) {
+        var dup = state.templates.some(function (t, i) { return i !== idx && t.name === name; });
+        if (dup) { toast("已存在同名模板，请换一个名称", true); return false; }
+        tpl.name = name;
+        saveTemplates();
+        renderTemplates();
+        toast("已重命名为「" + name + "」");
+        return true;
+      }
+    });
+  }
+
   function askDeleteTemplate(idx) {
     var tpl = state.templates[idx];
     if (!tpl) return;
     openConfirm({
       title: "删除模板？",
-      html: "即将删除自定义模板 <b>" + escapeHtml(tpl.name) + "</b>。<br>（表格当前内容不受影响）",
+      html: "即将删除自定义模板 <b>" + escapeHtml(tpl.name) + "</b>。<br>" +
+            "（只是删掉这套列结构，各工作区的内容不受影响）",
       okText: "确认删除",
       onOk: function () {
         state.templates.splice(idx, 1);
         saveTemplates();
         renderTemplates();
+        walkerReact("shock");              // 删除 = 惊讶
         toast("已删除模板「" + tpl.name + "」");
       }
     });
@@ -3839,6 +4298,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
         });
         saveTemplates();
         renderTemplates();
+        walkerReact("happy");              // 保存 = 开心
         toast("已保存模板「" + name + "」");
         return true;
       }
@@ -4027,6 +4487,20 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
       skbClearBuf();
     });
     initSkbDrag();                       // 按住标题栏可拖动键盘
+    // 工作区标签页：＋ 新建
+    var wsAdd = $("ws-add");
+    if (wsAdd) wsAdd.addEventListener("click", createWorkspace);
+    // 标签栏滚轮 → 横向滚动（Windows 上鼠标滚轮默认不走横向，必须自己映射）
+    var wsStrip = $("ws-strip");
+    if (wsStrip) {
+      wsStrip.addEventListener("wheel", function (e) {
+        var d = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+        if (!d) return;
+        wsStrip.scrollLeft += d;
+        e.preventDefault();
+        e.stopPropagation();
+      }, { passive: false });
+    }
     // 候选翻页按钮（和按键同样的处理：mousedown 阻止默认，避免抢走输入框焦点关掉编辑器）
     [["skb-page-prev", -1], ["skb-page-next", 1]].forEach(function (pair) {
       var btn = $(pair[0]);
@@ -4308,6 +4782,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
 
     initTable();
     renderTemplates();
+    renderWorkspaceTabs();      // 工作区标签页（数据已由 loadData 建好）
     bindUI();
     initDrag();
 
@@ -4329,7 +4804,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
 
     requestAnimationFrame(function () { updateMeta(); });
 
-    // 调试 / 扩展接口（控制台可调用，例如 __courseApp.loadTemplate('work')）
+    // 调试 / 扩展接口（控制台可调用）
     window.__courseApp = {
       state: state,
       table: function () { return table; },
@@ -4339,7 +4814,15 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
       setColumnType: setColumnType,
       openColumnModal: openColumnModal,
       loadTemplate: loadTemplate,
+      applyTemplateToWorkspace: applyTemplateToWorkspace,   // 跳过确认弹窗直接载入（测试用）
       saveAsTemplate: saveAsTemplate,
+      // 工作区
+      createWorkspace: createWorkspace,
+      switchWorkspace: switchWorkspace,
+      closeWorkspace: askCloseWorkspace,
+      renameWorkspace: askRenameWorkspace,
+      workspaceHasContent: workspaceHasContent,
+      saveCurrentWorkspace: saveCurrentWorkspace,
       exportJSON: exportJSON,
       importJSON: importJSON,
       walker: walker,
