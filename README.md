@@ -20,7 +20,7 @@ WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增
 
 ### 截图
 
-**整体效果** —— 表格面板浮在壁纸上，右侧是鲸鱼娘（大肥鱼）：
+**整体效果** —— 表格面板浮在壁纸上，上方是工作区标签页，右侧是鲸鱼娘（大肥鱼）：
 
 ![整体效果](excelwallpaper/assets/preview-1.png)
 
@@ -32,6 +32,12 @@ WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增
 
 ## 功能
 
+**工作区**
+- 表格上方是**浏览器标签样式**的工作区标签页，点标签即切换
+- 每个工作区连**列结构**带**数据**完全独立，内容**实时保存**
+- 标签上带金点表示"这个工作区里有内容"；双击标签重命名，`✕` 删除（删除一律先确认）
+- `＋` 新建工作区，新工作区是空的（单列「内容」），等你载入模板或自己加列
+
 **表格**
 - 点击单元格即编辑；**勾选框单击直接切换**，不需要先选中格子
 - 任意增删行列；首列（课程名称）受保护不可删
@@ -40,15 +46,17 @@ WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增
 
 **模板**
 - 内置三套预设：学习 / 工作 / 生活
-- 可把当前列结构「保存为模板」，右键或点 ✕ 删除；载入模板时**保留能对应的数据**
+- 可把当前工作区的列结构「保存为模板」，双击 chip 重命名，右键或点 ✕ 删除
+- **载入模板会先弹窗确认** —— 它会把模板的列结构套用到当前工作区，覆盖其现有列结构与内容
 
 **数据**
-- 自动存 localStorage，刷新不丢
+- 自动存 localStorage，刷新不丢（工作区 + 列结构 + 内容一起存）
 - 导入 / 导出 JSON
+- 从旧版本升级会自动迁移数据，不丢内容
 
 **鲸鱼娘（大肥鱼）**
 - 就是本项目的娘化形象，4 个表情：微笑 / 开心 / 惊讶 / 思考
-- 沿面板底部来回走，到边缘自动转身；编辑时思考，增删行时给出反应
+- 沿面板底部来回走，到边缘自动转身；编辑时思考；增删行列、新建/删除工作区时都会给出反应
 
 **桌面端输入**（见下方专节）
 - 内置**可拖动软键盘**，支持拼音输入中文，候选按字频排序
@@ -207,10 +215,11 @@ Pure HTML / CSS / vanilla JavaScript. **No CDN, no network requests at runtime**
 
 **Highlights**
 
+- **Multiple workspaces** as browser-style tabs above the table. Each workspace has its own column layout *and* its own data, saved in real time; rename by double-clicking a tab, delete with `✕` (always asks first)
 - Click any cell to edit; checkboxes toggle with a single click
 - Add / remove rows and columns; per-column type (text or checkbox)
-- Three built-in presets plus your own saved templates
-- Auto-saves to `localStorage`; JSON import / export
+- Three built-in presets (Study / Work / Life) plus your own saved templates — **loading a template asks for confirmation**, since it overwrites the current workspace's columns and content
+- Auto-saves to `localStorage`; JSON import / export; older data is migrated automatically
 - The project's mascot, **Whale-chan** (aka "Big Fat Fish"), walks along the panel and reacts to your actions
 - **Built-in draggable soft keyboard** with pinyin input (candidates sorted by character frequency) — because Wallpaper Engine does not deliver keyboard events to the wallpaper in desktop mode
 - Adjustable via Wallpaper Engine user properties: position, size, overall scale, and a show/hide toggle
