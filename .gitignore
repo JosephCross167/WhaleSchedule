@@ -1,0 +1,15 @@
+# 开发过程中的临时验证脚本与中间产物，不属于壁纸本体
+_tmp_verify/
+
+# 旧版素材（已被裁切对齐后的 image/ 取代，不随仓库分发）
+excelwallpaper/image_origin/
+
+# 与本壁纸无关的另一个项目，不要混进本仓库
+dsh-whale-widget/
+dsh-whale-widget.zip
+
+# 系统 / 编辑器杂项
+Thumbs.db
+desktop.ini
+.DS_Store
+*.log

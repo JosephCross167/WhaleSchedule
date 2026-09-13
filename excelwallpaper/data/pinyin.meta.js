@@ -1,0 +1,1 @@
+window.PINYIN_META = {"chunks": 1, "syllables": 394, "chars": 3755, "perSyllableMax": 40, "sortedBy": "Jun Da 现代汉语字频", "source": "mozillazg/pinyin-data kMandarin.txt + GB2312 L1 (3755) + hanziDB.csv(Jun Da)"};
