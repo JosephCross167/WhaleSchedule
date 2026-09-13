@@ -14,13 +14,13 @@
 
 ## 简介
 
-WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增删行列、切换列类型、存模板、导入导出 JSON，数据自动保存在本地。表格旁边有个会来回走动的小角色，编辑时她会思考、增删行时会惊讶。
+WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增删行列、切换列类型、存模板、导入导出 JSON，数据自动保存在本地。表格旁边有位会来回走动的**鲸鱼娘**（也叫「大肥鱼」，其实就是本项目的娘化形象），编辑时她会思考、增删行时会惊讶。
 
 **全部美术素材与代码均由 AI 生成**，详见 [素材与 AI 生成说明](#素材与-ai-生成说明)。
 
 ### 截图
 
-**整体效果** —— 表格面板浮在壁纸上，右侧是走动角色：
+**整体效果** —— 表格面板浮在壁纸上，右侧是鲸鱼娘（大肥鱼）：
 
 ![整体效果](excelwallpaper/assets/preview-1.png)
 
@@ -46,8 +46,8 @@ WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增
 - 自动存 localStorage，刷新不丢
 - 导入 / 导出 JSON
 
-**走动角色**
-- 4 个表情：微笑 / 开心 / 惊讶 / 思考
+**鲸鱼娘（大肥鱼）**
+- 就是本项目的娘化形象，4 个表情：微笑 / 开心 / 惊讶 / 思考
 - 沿面板底部来回走，到边缘自动转身；编辑时思考，增删行时给出反应
 
 **桌面端输入**（见下方专节）
@@ -85,7 +85,7 @@ Wallpaper Engine 在桌面模式下**不会把键盘事件投递给壁纸页面*
 | `table_y` | slider | 0–100%，默认 20% | 面板垂直位置 |
 | `table_width` | slider | 400–1400 px | 面板宽度 |
 | `table_height` | slider | 300–900 px | 面板高度上限 |
-| `table_scale` | slider | 60–150%，默认 100% | **整体等比缩放**（缩放整张卡片，含边框与角色） |
+| `table_scale` | slider | 60–150%，默认 100% | **整体等比缩放**（缩放整张卡片，含边框与鲸鱼娘） |
 | `table_visible` | checkbox | 默认开 | 取消勾选即隐藏整个表格 |
 
 **优先级：用户属性 > localStorage > 默认值。**
@@ -119,10 +119,10 @@ Wallpaper Engine 在桌面模式下**不会把键盘事件投递给壁纸页面*
     │   └── pinyin.meta.js      # 字典元信息
     ├── image/
     │   ├── background.png      # 背景（3840×2160，精确 16:9）
-    │   ├── chibi-smile.png     # 走动角色：微笑
-    │   ├── chibi-happy.png     # 走动角色：开心
-    │   ├── chibi-shock.png     # 走动角色：惊讶
-    │   └── chibi-think.png     # 走动角色：思考
+    │   ├── chibi-smile.png     # 鲸鱼娘：微笑
+    │   ├── chibi-happy.png     # 鲸鱼娘：开心
+    │   ├── chibi-shock.png     # 鲸鱼娘：惊讶
+    │   └── chibi-think.png     # 鲸鱼娘：思考
     └── lib/
         ├── tabulator.min.js    # Tabulator 5.6.1
         ├── tabulator.min.css
@@ -172,9 +172,9 @@ window.wallpaperPropertyListener.applyUserProperties({
 
 ## 素材与 AI 生成说明
 
-**本项目的全部美术素材与代码均由 AI 生成**（背景图、走动角色四个表情，以及全部 HTML / CSS / JavaScript）。
+**本项目的全部美术素材与代码均由 AI 生成**（背景图、鲸鱼娘（大肥鱼）的四个表情，以及全部 HTML / CSS / JavaScript）。
 
-- 背景图与角色立绘由 AI 图像模型生成，再经放大与裁切处理（已裁为精确 16:9）
+- 背景图与鲸鱼娘立绘由 AI 图像模型生成，再经放大与裁切处理（已裁为精确 16:9）
 - 代码由 AI 编写，作者负责需求定义、验证与取舍
 
 因此：
@@ -211,7 +211,7 @@ Pure HTML / CSS / vanilla JavaScript. **No CDN, no network requests at runtime**
 - Add / remove rows and columns; per-column type (text or checkbox)
 - Three built-in presets plus your own saved templates
 - Auto-saves to `localStorage`; JSON import / export
-- A chibi character walks along the panel and reacts to your actions
+- The project's mascot, **Whale-chan** (aka "Big Fat Fish"), walks along the panel and reacts to your actions
 - **Built-in draggable soft keyboard** with pinyin input (candidates sorted by character frequency) — because Wallpaper Engine does not deliver keyboard events to the wallpaper in desktop mode
 - Adjustable via Wallpaper Engine user properties: position, size, overall scale, and a show/hide toggle
 
