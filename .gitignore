@@ -16,3 +16,12 @@ Thumbs.db
 desktop.ini
 .DS_Store
 *.log
+
+# 录屏抠像专用副本（纯色背景 + 无动画）：本机自用，不进仓库
+excelwallpaper-keying/
+
+# 宣传片页面（分镜动画）：本机自用，不进仓库
+excelwallpaper/anim/
+
+# 本机工具链（ffmpeg / ffprobe，约 194MB）：绝不入库
+tools/
