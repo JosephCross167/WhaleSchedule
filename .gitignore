@@ -1,29 +1,31 @@
 # ============================================================================
-# Project layout convention
+# Repo scope: the wallpaper only.
 # ----------------------------------------------------------------------------
-#   repo root/
-#     README.md, LICENSE            repo front page
-#     whale_schedule/
-#       main/                       the wallpaper itself (WE: pick THIS folder)
-#       keying/                     chroma-key screen-recording variant
-#       tests/ tools/ docs/ data/   auxiliary engineering files
-#       anim/ build/                promo animation / build output
+#   whale_schedule/main/          the wallpaper itself (WE: pick THIS folder)
+#   whale_schedule/data/pindata/  pinyin dictionary source data (keyboard)
+#   whale_schedule/docs/recovery/ scripts to recover table data from browser storage
 #
-# Only a few re-generatable or unrelated things need ignoring, so new
-# engineering files can be dropped into whale_schedule/ without ever touching
-# this file again.
+# Everything else is local-only: promo video, chroma-key copy, test harness,
+# build tools, drafts. Files stay on disk, they just don't go into the repo.
 # ============================================================================
 
-# --- re-generatable / too large for the repo ---
-
-# ffmpeg binaries (~313MB; GitHub rejects files over 100MB)
-whale_schedule/tools/bin/
-
-# render & build intermediates (frame sequences, recovery caches)
+# --- local-only: promo video, chroma-key copy, tests, tools, drafts ---
+whale_schedule/keying/
+whale_schedule/anim/
+whale_schedule/tests/
+whale_schedule/tools/
 whale_schedule/build/
+whale_schedule/docs/promo_testcut.mp4
+whale_schedule/docs/storyboard.md
+whale_schedule/docs/video_script.md
+whale_schedule/docs/workshop_desc.md
+whale_schedule/docs/README_draft.md
+whale_schedule/docs/old-assets-v0.2.10/
 
-# scratch space used by the test harness (headless Chrome profiles etc.)
-_tmp_verify/
+# data-recovery debug dumps (keep the .mjs scripts, drop the dumps)
+whale_schedule/docs/recovery/*.txt
+
+# --- re-generatable / too large ---
 
 # legacy uncropped artwork, superseded by whale_schedule/main/image/
 whale_schedule/main/image_origin/
@@ -31,10 +33,15 @@ whale_schedule/main/image_origin/
 # old Bilibili intro animation, local only
 whale_schedule/main/intro/
 
-# unrelated side project, must not leak into this repo
+# scratch space used by the test harness (headless Chrome profiles etc.)
+_tmp_verify/
+
+# ffmpeg binaries (~313MB), under the local-only tools/
+whale_schedule/tools/bin/
+
+# --- unrelated side project, must not leak in ---
 dsh-whale-widget/
 dsh-whale-widget.zip
-whale_schedule/docs/old-assets-v0.2.10/
 
 # --- OS / editor cruft ---
 Thumbs.db
