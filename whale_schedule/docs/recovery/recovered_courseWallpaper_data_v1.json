@@ -1,0 +1,62 @@
+{
+  "columnConfig": [
+    {
+      "field": "course",
+      "title": "课程名称",
+      "editor": "input"
+    },
+    {
+      "field": "yuketang",
+      "title": "雨课堂",
+      "editor": "tickCross"
+    },
+    {
+      "field": "yunbanke",
+      "title": "云班课",
+      "editor": "tickCross"
+    },
+    {
+      "field": "zhihuishu",
+      "title": "智慧树",
+      "editor": "tickCross"
+    },
+    {
+      "field": "mooc",
+      "title": "MOOC",
+      "editor": "tickCross"
+    },
+    {
+      "field": "cgpt",
+      "title": "CG平台",
+      "editor": "tickCross"
+    },
+    {
+      "field": "shiyan",
+      "title": "实验",
+      "editor": "tickCross"
+    },
+    {
+      "field": "gongtu",
+      "title": "工图",
+      "editor": "tickCross"
+    },
+    {
+      "field": "remark",
+      "title": "备注",
+      "editor": "input"
+    }
+  ],
+  "rows": [
+    {
+      "course": "",
+      "yuketang": false,
+      "yunbanke": false,
+      "zhihuishu": false,
+      "mooc": false,
+      "cgpt": false,
+      "shiyan": false,
+      "gongtu": false,
+      "remark": "周一 1-2 节 · 教三楼 305"
+    }
+  ]
+}

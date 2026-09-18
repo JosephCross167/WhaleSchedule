@@ -1,27 +1,43 @@
-# 开发过程中的临时验证脚本与中间产物，不属于壁纸本体
+# ============================================================================
+# Project layout convention
+# ----------------------------------------------------------------------------
+#   repo root/
+#     README.md, LICENSE            repo front page
+#     whale_schedule/
+#       main/                       the wallpaper itself (WE: pick THIS folder)
+#       keying/                     chroma-key screen-recording variant
+#       tests/ tools/ docs/ data/   auxiliary engineering files
+#       anim/ build/                promo animation / build output
+#
+# Only a few re-generatable or unrelated things need ignoring, so new
+# engineering files can be dropped into whale_schedule/ without ever touching
+# this file again.
+# ============================================================================
+
+# --- re-generatable / too large for the repo ---
+
+# ffmpeg binaries (~313MB; GitHub rejects files over 100MB)
+whale_schedule/tools/bin/
+
+# render & build intermediates (frame sequences, recovery caches)
+whale_schedule/build/
+
+# scratch space used by the test harness (headless Chrome profiles etc.)
 _tmp_verify/
 
-# 旧版素材（已被裁切对齐后的 image/ 取代，不随仓库分发）
-excelwallpaper/image_origin/
+# legacy uncropped artwork, superseded by whale_schedule/main/image/
+whale_schedule/main/image_origin/
 
-# 与本壁纸无关的另一个项目，不要混进本仓库
+# old Bilibili intro animation, local only
+whale_schedule/main/intro/
+
+# unrelated side project, must not leak into this repo
 dsh-whale-widget/
 dsh-whale-widget.zip
+whale_schedule/docs/old-assets-v0.2.10/
 
-# B站视频用的片头动画：本机自用，不随仓库分发
-excelwallpaper/intro/
-
-# 系统 / 编辑器杂项
+# --- OS / editor cruft ---
 Thumbs.db
 desktop.ini
 .DS_Store
 *.log
-
-# 录屏抠像专用副本（纯色背景 + 无动画）：本机自用，不进仓库
-excelwallpaper-keying/
-
-# 宣传片页面（分镜动画）：本机自用，不进仓库
-excelwallpaper/anim/
-
-# 本机工具链（ffmpeg / ffprobe，约 194MB）：绝不入库
-tools/

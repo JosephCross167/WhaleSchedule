@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>promo · test cut</title>
+<style>
+/* ==========================================================================
+   宣传片试水段 · 镜头 4（多工作区）+ 镜头 5（增删行列）
+   来源：excelwallpaper/index.html 的设计令牌与组件样式，1:1 复刻
+   时间轴：完全确定性 —— 所有画面都是 t 的纯函数，seek(t) 可任意定格
+   ========================================================================== */
+:root{
+  --primary:#3A49A5; --primary-dark:#2A3578; --primary-light:#8FA3EA; --accent:#4C7BE0;
+  --gold:#D8A752; --gold-bright:#EFCB7C; --danger:#C25450;
+  --bg-page:#FFFFFF; --row-stripe:rgba(238,242,251,0.90);
+  --border:#C9D4EE; --border-soft:rgba(201,212,238,0.75);
+  --panel-bg:rgba(255,255,255,0.72); --panel-blur:10px;
+  --panel-shadow:0 8px 28px rgba(42,53,120,0.10);
+  --text-title:#2A3578; --text-body:#3A4160; --text-secondary:#6E789E;
+  --text-placeholder:#A6AECB; --text-on-primary:#FFFFFF; --link:#4C7BE0;
+  --toolbar-h:50px; --wstabs-h:46px; --template-h:40px; --custom-h:32px; --hint-h:28px;
+  --table-header-h:58px; --table-row-h:46px;
+  /* 角色几何：与生产代码 applyFigureMetrics 的实测值完全一致 */
+  --fig-w:145px; --fig-h:133.06px; --fig-content-w:0.306640625;
+  --fig-vis-w:125px; --fig-pad-x:10px; --fig-up:69.27px; --fig-left:-93.09px;
+  --lane-h:149px;
+  --camera-x:50%; --camera-y:50%; --camera-z:1.55;
+  --focus-dim:0;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; width:1920px; height:1080px; overflow:hidden; }
+body{
+  font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+  color:var(--text-body); line-height:1.5; background:#0d1020;
+}
+
+/* —— 背景层（真实桌面实景）—— */
+.bg-layer{ position:absolute; inset:0; z-index:0; overflow:hidden; }
+.bg-layer img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+/* —— 聚焦遮罩：镜头推近时压暗四周 —— */
+.focus-dim{
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 45%, rgba(8,10,26,0) 34%, rgba(8,10,26,.62) 100%);
+  opacity:var(--focus-dim);
+  transition:none;
+}
+
+/* —— 世界层：整个面板作为「被拍摄对象」，通过焦点+缩放模拟镜头 ——
+   镜头原理：世界层原点固定在左上角（transform-origin:0 0），
+   JS 按 screen = W·z + T 反解平移量 T = 屏幕中心 - 焦点·z，再做 scale。
+   这样焦点 F 在屏幕上永远不动，缩放只影响它周围 —— 才是真正的"推镜头"。
+   走过的坑：起初用 CSS 的 transform-origin:<焦点像素> 来实现，
+   但浏览器把 origin 的分量 clamp 在元素尺寸内（1920×1080 里 y 被夹到 540），
+   轴点于是不在焦点上，画面整体偏移。改为 JS 算绝对值后不再有这个问题。 */
+.world{
+  position:absolute; left:0; top:0; width:100%; height:100%;
+  z-index:2; transform-origin:0 0;
+  /* 兜底值；每帧由 render() 写入内联 transform */
+  transform:translate(0px,0px) scale(1);
+}
+.panel-wrap{ position:absolute; left:850px; top:170px; width:1130px; }
+
+/* —— 面板（复刻 .table-panel）—— */
+.table-panel{
+  position:relative; display:flex; flex-direction:column; overflow:hidden;
+  background:var(--panel-bg);
+  -webkit-backdrop-filter:blur(var(--panel-blur)) saturate(1.05);
+  backdrop-filter:blur(var(--panel-blur)) saturate(1.05);
+  border:1px solid var(--border-soft); border-radius:16px; box-shadow:var(--panel-shadow);
+}
+
+/* —— 工具栏（复刻 .toolbar）—— */
+.toolbar{
+  flex:0 0 auto; min-height:var(--toolbar-h);
+  display:flex; align-items:center; gap:6px 8px; padding:6px 12px;
+  background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(238,242,251,.86));
+  border-bottom:1px solid var(--border-soft); border-radius:16px 16px 0 0;
+}
+.spacer{ flex:1 1 auto; }
+.drag-grip{
+  display:inline-flex; align-items:center; gap:7px; font-size:12px;
+  color:var(--text-secondary); padding-right:8px; border-right:1px dashed var(--border);
+}
+.drag-grip b{
+  display:inline-block; width:14px; height:12px;
+  background-image:radial-gradient(var(--primary-light) 1.6px, transparent 1.7px);
+  background-size:6px 6px; border-radius:2px;
+}
+.meta-chip{
+  font-size:12px; font-weight:500; color:var(--link);
+  background:rgba(255,255,255,.82); border:1px solid var(--border-soft);
+  border-radius:999px; padding:3px 10px; white-space:nowrap;
+}
+.meta-chip b{ color:var(--primary-dark); }
+.btn{
+  font-family:inherit; font-size:13px; font-weight:600; line-height:1;
+  padding:8px 12px; border-radius:9px; border:1px solid transparent;
+  white-space:nowrap; position:relative;
+}
+.btn .ico{ margin-right:5px; opacity:.9; }
+.btn-primary{
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  color:var(--text-on-primary); box-shadow:0 2px 6px rgba(42,53,120,.22);
+}
+.btn-ghost{
+  background:rgba(255,255,255,.80); border-color:var(--border); color:var(--primary-dark);
+}
+.btn-danger{
+  background:rgba(255,255,255,.80); border-color:rgba(194,84,80,.45); color:var(--danger);
+}
+/* 鼠标点击反馈：按下状态由 JS 按 t 加类 */
+.btn.press{ transform:translateY(1px); filter:brightness(.94); }
+.btn.press-strong{
+  background:linear-gradient(135deg,var(--accent),var(--primary)) !important;
+  color:#fff !important;
+}
+
+/* —— 工作区标签（复刻 .ws-tabs / .ws-tab / .ws-tab-add）—— */
+.ws-tabs{
+  flex:0 0 auto; display:flex; align-items:flex-end; gap:6px;
+  height:var(--wstabs-h); padding:0 8px;
+  border-bottom:1px solid var(--border-soft); background:rgba(238,242,251,.55);
+}
+.ws-tab-strip{ flex:1 1 auto; display:flex; align-items:flex-end; gap:4px; height:100%; overflow:hidden; }
+.ws-tab-add{
+  flex:0 0 auto; width:26px; height:26px; margin-bottom:4px; padding:0;
+  font-family:inherit; font-size:16px; line-height:1; color:var(--primary-dark);
+  background:#FFFFFF; border:1px solid var(--border); border-radius:7px;
+}
+.ws-tab-add.press{ transform:scale(.92); color:#fff; background:var(--primary); border-color:var(--primary); }
+.ws-tab{
+  flex:0 0 auto; display:inline-flex; align-items:center; gap:4px;
+  max-width:190px; height:30px; margin-bottom:1px; padding:0 4px 0 11px;
+  font-family:inherit; font-size:12.5px; font-weight:500; color:var(--text-secondary);
+  background:rgba(255,255,255,.62); border:1px solid var(--border-soft);
+  border-bottom:none; border-radius:8px 8px 0 0;
+}
+.ws-tab.on{
+  color:var(--primary-dark); background:#FFFFFF; font-weight:700;
+  box-shadow:inset 0 3px 0 0 var(--primary); border-color:var(--border);
+}
+.ws-tab .ws-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ws-tab .ws-x{
+  flex:0 0 auto; width:16px; height:16px; font-size:11px; line-height:16px;
+  text-align:center; color:var(--text-placeholder); border-radius:50%;
+}
+.ws-tab .ws-dot{ flex:0 0 auto; width:5px; height:5px; border-radius:50%; background:var(--gold); }
+
+/* —— 表格（复刻 Tabulator 的表头/单元格外观）—— */
+.table-area{ flex:0 0 auto; position:relative; height:var(--table-area-height,368px); overflow:hidden; }
+.grid{ width:100%; }
+.grid-head{
+  display:flex; height:var(--table-header-h);
+  background:linear-gradient(135deg,var(--primary-dark),var(--primary));
+  border-bottom:2px solid var(--gold); border-radius:0;
+}
+.grid-head .col{
+  display:flex; align-items:center; padding:0 10px;
+  font-size:15px; font-weight:600; color:var(--text-on-primary);
+  border-right:1px solid rgba(255,255,255,.18); white-space:nowrap; overflow:hidden;
+}
+.col-type-icon{
+  display:inline-block; font-size:11px; line-height:1; padding:2px 4px; margin-right:5px;
+  border-radius:5px; background:rgba(255,255,255,.18);
+  border:1px solid rgba(216,167,82,.70); vertical-align:middle;
+}
+.grid-row{ display:flex; height:var(--table-row-h); }
+.grid-row.even{ background:var(--row-stripe); }
+.grid-cell{
+  display:flex; align-items:center; padding:0 12px; font-size:15px; font-weight:500;
+  color:var(--text-body); border-right:1px solid var(--border-soft);
+  border-bottom:1px solid var(--border-soft); white-space:nowrap; overflow:hidden;
+}
+.grid-cell.sec{ font-size:13px; font-weight:400; color:var(--text-secondary); }
+/* 勾选框单元格 */
+.grid-cell.tick{ justify-content:center; }
+.tickbox{
+  width:20px; height:20px; border-radius:5px; border:2px solid var(--border);
+  background:#fff; position:relative;
+}
+.tickbox.on{ background:var(--accent); border-color:var(--accent); }
+.tickbox.on::after{
+  content:""; position:absolute; left:5px; top:2px; width:6px; height:11px;
+  border:solid #fff; border-width:0 2.5px 2.5px 0; transform:rotate(45deg);
+}
+/* 编辑中单元格 */
+.cell-edit{
+  background:#fff; border:2px solid var(--accent); border-radius:6px;
+  box-shadow:0 0 0 3px rgba(76,123,224,.18); padding:0 8px;
+}
+.caret{ display:inline-block; width:2px; height:19px; background:var(--accent); margin-left:1px; }
+
+/* 新建行/列：从下方插入的动画 */
+.row-new{ animation:none; }
+.col-new{ animation:none; }
+
+/* —— 模板栏 —— */
+.template-bar{ flex:0 0 auto; padding:0 12px 4px; }
+.template-row{ display:flex; align-items:center; gap:6px; height:var(--template-h); }
+.tpl-label{ flex:0 0 auto; font-size:12px; font-weight:700; color:var(--primary-dark); }
+.tpl-btn{
+  font-family:inherit; font-size:12.5px; font-weight:600; line-height:1;
+  padding:6px 11px; border-radius:8px; border:1px solid var(--border);
+  background:rgba(255,255,255,.88); color:var(--primary-dark); white-space:nowrap;
+}
+.tpl-btn.save{
+  margin-left:auto; border-color:rgba(216,167,82,.75); color:#7A5600; background:rgba(216,167,82,.12);
+}
+.custom-row{ display:flex; align-items:center; gap:6px; height:var(--custom-h); overflow:hidden; }
+.custom-empty{ font-size:11.5px; color:var(--text-placeholder); white-space:nowrap; }
+
+/* —— 走动区 + Q 版（1:1 复刻生产几何）—— */
+.walker-lane{
+  position:relative; flex:0 0 auto; height:var(--lane-h); min-height:149px; overflow:hidden;
+  border-top:1px solid var(--border-soft);
+  background:linear-gradient(180deg,rgba(238,242,251,.38),rgba(255,255,255,.02)),
+             radial-gradient(120% 90% at 50% 100%,rgba(143,163,234,.16),transparent 70%);
+}
+.walker-box{
+  position:absolute; z-index:7; width:var(--fig-w); height:var(--fig-h); bottom:0; overflow:hidden;
+  left:calc(var(--walker-x,0) * (100% - var(--fig-vis-w) - 2 * var(--fig-pad-x)) + var(--fig-pad-x));
+}
+.walker-flip{ position:absolute; inset:0; transform:scaleX(var(--walker-scale,1)); transform-origin:50% 50%; }
+.walker-crop{ position:absolute; inset:0; overflow:hidden; }
+.walker-fig{
+  position:absolute; left:var(--fig-left); bottom:0; display:block;
+  width:calc(var(--fig-w) / var(--fig-content-w)); max-width:none; height:auto;
+  margin-bottom:calc(-1 * var(--fig-up));
+}
+
+/* —— 底部提示行 —— */
+.panel-hint{
+  flex:0 0 auto; height:var(--hint-h); display:flex; align-items:center; gap:10px;
+  padding:0 12px; font-size:11.5px; color:var(--text-secondary);
+  border-top:1px solid var(--border-soft); background:rgba(255,255,255,.55);
+}
+.kbd-badge{
+  font-size:10.5px; font-weight:700; color:var(--primary-dark);
+  background:rgba(255,255,255,.9); border:1px solid var(--border);
+  border-radius:5px; padding:2px 6px;
+}
+
+/* —— 列配置弹窗（添加列）—— */
+.popup{
+  position:absolute; z-index:20; width:226px; padding:10px 12px;
+  background:#fff; border:1px solid var(--border); border-radius:11px;
+  box-shadow:0 12px 30px rgba(42,53,120,.24); font-size:12.5px;
+}
+.popup h4{ margin:0 0 8px; font-size:12.5px; color:var(--text-title); font-weight:700; }
+.popup .field{
+  display:flex; align-items:center; height:28px; padding:0 8px; margin-bottom:7px;
+  border:1px solid var(--border); border-radius:7px; color:var(--text-body); background:#fff;
+}
+.popup .field.focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(76,123,224,.16); }
+.popup .types{ display:flex; gap:6px; }
+.popup .type{
+  flex:1 1 0; text-align:center; padding:6px 0; border-radius:7px;
+  border:1px solid var(--border); color:var(--text-secondary); background:rgba(255,255,255,.9);
+}
+.popup .type.sel{
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+  border-color:var(--primary-dark); color:#fff; font-weight:700;
+}
+.popup .ok{
+  margin-top:8px; text-align:center; padding:6px 0; border-radius:7px;
+  background:linear-gradient(135deg,var(--primary),var(--primary-dark)); color:#fff; font-weight:700;
+}
+.popup .ok.press{ filter:brightness(1.15); transform:translateY(1px); }
+
+/* —— 鼠标指针（自绘，位置由 t 决定）—— */
+.cursor{
+  position:absolute; z-index:40; width:22px; height:22px; left:0; top:0;
+  transform:translate(-3px,-2px); pointer-events:none;
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));
+}
+.cursor .ring{
+  position:absolute; left:-11px; top:-11px; width:44px; height:44px; border-radius:50%;
+  border:2px solid var(--accent); opacity:0;
+}
+.cursor.click .ring{ opacity:1; }
+
+/* —— 右侧功能点提示：屏幕坐标，不参与镜头缩放 —— */
+.feature{
+  position:absolute; z-index:30; left:1360px; top:520px; width:430px;
+  opacity:0; transform:translateX(26px);
+}
+.feature .ftag{
+  display:inline-block; font-size:12px; font-weight:700; letter-spacing:.08em;
+  color:var(--gold-bright); border:1px solid rgba(216,167,82,.65);
+  border-radius:999px; padding:3px 11px; margin-bottom:9px;
+  background:rgba(216,167,82,.12);
+}
+.feature .ftitle{
+  font-size:46px; font-weight:800; color:#fff; line-height:1.16;
+  text-shadow:0 4px 20px rgba(0,0,0,.5);
+}
+.feature .fsub{ margin-top:9px; font-size:16px; color:#D5DCF3; line-height:1.6; }
+.feature .fbar{ margin-top:13px; width:74px; height:4px; border-radius:2px; background:var(--gold); }
+</style>
+</head>
+<body>
+<div class="bg-layer"><img src="../image/background.png" alt=""></div>
+<div class="focus-dim"></div>
+
+<div class="world" id="world">
+  <div class="panel-wrap" id="panel-wrap">
+    <section class="table-panel" id="panel">
+
+      <div class="toolbar" id="toolbar">
+        <span class="drag-grip"><b></b>拖动</span>
+        <button class="btn btn-primary" id="btn-add-row"><span class="ico">＋</span>添加行</button>
+        <button class="btn btn-ghost" id="btn-add-col"><span class="ico">＋</span>添加列</button>
+        <button class="btn btn-danger" id="btn-del-row">删除行</button>
+        <span class="spacer"></span>
+        <span class="meta-chip" id="meta-date">—</span>
+        <span class="meta-chip">共 <b id="meta-rows">0</b> 行</span>
+        <button class="btn btn-ghost">⌨ 软键盘</button>
+        <button class="btn btn-ghost">导出JSON</button>
+        <button class="btn btn-ghost">导入JSON</button>
+      </div>
+
+      <div class="ws-tabs">
+        <button class="ws-tab-add" id="ws-add">＋</button>
+        <div class="ws-tab-strip" id="ws-strip"></div>
+      </div>
+
+      <div class="table-area" id="table-area">
+        <div class="grid" id="grid"></div>
+        <div class="popup" id="popup" style="display:none"></div>
+      </div>
+
+      <div class="template-bar">
+        <div class="template-row">
+          <span class="tpl-label">模板</span>
+          <button class="tpl-btn">学习</button>
+          <button class="tpl-btn">工作</button>
+          <button class="tpl-btn">生活</button>
+          <button class="tpl-btn save">保存为模板</button>
+        </div>
+        <div class="custom-row"><span class="custom-empty">暂无自定义模板（保存后可在此载入，右键或长按删除）</span></div>
+      </div>
+
+      <div class="walker-lane" id="lane">
+        <div class="walker-box" id="walker-box">
+          <div class="walker-flip" id="walker-flip">
+            <div class="walker-crop">
+              <img class="walker-fig" id="walker-fig" src="../image/chibi-smile.png" alt="">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-hint">
+        <span class="kbd-badge">鼠标</span>
+        <span id="hint-text">点单元格可直接编辑；点勾选框格即可打勾</span>
+      </div>
+
+    </section>
+  </div>
+
+  <svg class="cursor" id="cursor" viewBox="0 0 24 24">
+    <path d="M4 2 L4 19 L8.6 14.6 L11.6 21.4 L14.4 20.1 L11.4 13.4 L17.4 13.2 Z"
+          fill="#fff" stroke="#2A3578" stroke-width="1.4" stroke-linejoin="round"/>
+    <circle class="ring" cx="12" cy="12" r="20" fill="none" stroke="#4C7BE0" stroke-width="2"/>
+  </svg>
+</div>
+
+<!-- 功能卡放在世界层之外：屏幕坐标，不随镜头缩放 -->
+<div class="feature" id="feat">
+  <div class="ftag" id="feat-tag">FEATURE</div>
+  <div class="ftitle" id="feat-title"></div>
+  <div class="fsub" id="feat-sub"></div>
+  <div class="fbar"></div>
+</div>
+
+<script>
+/* 自检用：把页面错误收集起来，供 diag 脚本读取 */
+window.__pageErrors = [];
+window.addEventListener("error", function(e){ window.__pageErrors.push(String(e.message)); });
+window.addEventListener("unhandledrejection", function(e){ window.__pageErrors.push("rej: " + String(e.reason)); });
+
+/* ==========================================================================
+   时间轴
+   --------------------------------------------------------------------------
+   镜头 4 多工作区   0.0 – 16.0
+   镜头 5 增删行列  16.0 – 32.0
+   所有卡点 = k*0.4992 + 0.435，k = 0..63（原曲 32.0s 起，相位对齐）
+   ========================================================================== */
+var BEAT = 0.4992, PHASE = 0.435, DUR = 32.0;
+function beat(k){ return k * BEAT + PHASE; }
+
+/* ---------- 缓动 ---------- */
+function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+function easeOut(u){ return 1 - Math.pow(1 - clamp01(u), 3); }
+function easeInOut(u){ u = clamp01(u); return u < .5 ? 4*u*u*u : 1 - Math.pow(-2*u+2,3)/2; }
+function easeBack(u){ u = clamp01(u); var c1=1.70158, c3=c1+1; return 1 + c3*Math.pow(u-1,3) + c1*Math.pow(u-1,2); }
+/* 区间映射：在 [a,b] 上用 easing 从 0→1；之前为 0，之后为 1 */
+function seg(t, a, b, fn){
+  if (t <= a) return 0;
+  if (t >= b) return 1;
+  return (fn || easeOut)((t - a) / (b - a));
+}
+function lerp(a, b, u){ return a + (b - a) * u; }
+
+/* ---------- 工具：逐字打出 ---------- */
+function typeText(el, text, t, start, cps){
+  if (!el) return;
+  if (el.__lastText !== text) { el.textContent = ""; el.__lastText = text; el.__built = false; }
+  var n = Math.max(0, Math.min(text.length, Math.floor((t - start) * (cps || 10))));
+  if (el.__n !== n) { el.textContent = text.slice(0, n); el.__n = n; }
+}
+function setText(el, s){ if (el && el.__s !== s) { el.textContent = s; el.__s = s; } }
+
+/* ---------- 数据 ---------- */
+var WS = [
+  { name:"课表", cols:[
+      { t:"课程",   k:"text" }, { t:"星期", k:"text" }, { t:"节次", k:"text" },
+      { t:"雨课堂", k:"tick" }, { t:"云班课", k:"tick" }, { t:"智慧树", k:"tick" } ],
+    rows:[ ["高等数学","周一","1-2节",1,0,1],
+           ["线性代数","周二","3-4节",0,1,0],
+           ["大学物理","周三","1-2节",1,0,0],
+           ["程序设计","周四","5-6节",0,1,1],
+           ["工程图学","周五","3-4节",1,1,0],
+           ["概率统计","周一","5-6节",0,0,1] ] },
+  { name:"待办", cols:[
+      { t:"任务", k:"text" }, { t:"截止", k:"text" }, { t:"完成", k:"tick" } ],
+    rows:[ ["写实验报告","周三",0], ["复习线代","周四",1],
+           ["交大作业","周五",0], ["预习新章节","周日",0] ] },
+  { name:"生活", cols:[
+      { t:"事项", k:"text" }, { t:"时间", k:"text" }, { t:"打卡", k:"tick" } ],
+    rows:[ ["晨跑 3km","07:00",1], ["背单词","08:00",1],
+           ["早点睡","23:00",0], ["喝水 8 杯","全天",0] ] }
+];
+/* 镜头 4：建两个新工作区再切回去，展示「列结构和内容都各管各的」 */
+var WS_TL = [
+  { k: 0, t: beat(0),  act:"add" },     //  0.435 出现第 1 个标签「课表」
+  { k: 4, t: beat(4),  act:"add" },     //  2.432 新建「待办」
+  { k: 8, t: beat(8),  act:"add" },     //  4.429 新建「生活」
+  { k:12, t: beat(12), act:"switch", i:0 },  // 6.425 切回课表
+  { k:16, t: beat(16), act:"switch", i:1 },  // 8.422 切到待办
+  { k:20, t: beat(20), act:"switch", i:2 },  // 10.419 切到生活
+  { k:24, t: beat(24), act:"switch", i:0 }   // 12.417 切回课表（收束）
+];
+/* 镜头 5：增删行列（行数上限 8 —— 面板高度就是画面高度的上限，不能再多） */
+var COL_TL = [
+  { k:32, t:beat(32), act:"addrow" },          // 16.409 加 1 行
+  { k:34, t:beat(34), act:"addrow" },          // 17.408 加 1 行（共 +2 → 8 行）
+  { k:36, t:beat(36), act:"openpopup" },       // 18.406 点「＋添加列」
+  { k:40, t:beat(40), act:"typeTick" },        // 20.403 类型选「勾选框」
+  { k:42, t:beat(42), act:"commitcol" },       // 21.401 确认 → 新列出现
+  { k:44, t:beat(44), act:"col2" },            // 22.400 再建一个文本框列
+  { k:50, t:beat(50), act:"delcol" }           // 25.395 删除一列
+];
+
+/* ---------- 相机关键帧：焦点固定为面板中心，只推拉 + 压暗 ----------
+   面板几何（实测，9 行时）：left 850 / top 170 / 宽 1130 / 高 739
+     工具栏 50 + 标签 46 + 表格区(58+9×46=472) + 模板栏 76 + 走动区 149 = 793? 
+     → 实测 739：模板栏 .template-bar 只有 40+32 且 custom-row 被压，行数多时表格区封顶 478
+   高度随行数变 4 行~9 行，取"最高时"的纵向中心 170+739/2 ≈ 540 作为轴点会顶到下沿，
+   因此轴点定在 y=470（略高于几何中心），保证 4~9 行都完整在画内。
+   横向：1130 × 1.44 = 1627 < 1920。
+   高度上限：739 × 1.44 = 1064 ≤ 1080 —— 这是 z 的上限来源，不是横向。 */
+var CAM_CX = 1415, CAM_CY = 500;
+var CAM = [
+  { t: 0.0,  z:1.28, dim:.10 },
+  { t: 1.6,  z:1.32, dim:.14 },   // 建标签时轻微推近
+  { t: 6.3,  z:1.32, dim:.14 },
+  { t: 7.6,  z:1.38, dim:.34 },   // 切到「待办」：表格区特写
+  { t:12.3,  z:1.38, dim:.34 },
+  { t:13.6,  z:1.32, dim:.14 },   // 拉回一点，为镜头 5 换气
+  { t:16.3,  z:1.36, dim:.34 },
+  { t:18.5,  z:1.40, dim:.40 },   // 加行密集段，再推一点
+  { t:22.3,  z:1.40, dim:.40 },   // 新列出现（上限）
+  { t:26.2,  z:1.36, dim:.34 },   // 删列
+  { t:29.6,  z:1.28, dim:.12 },   // 收尾拉回全景
+  { t:32.0,  z:1.26, dim:.08 }
+];
+function camAt(t){
+  if (t <= CAM[0].t) return CAM[0];
+  for (var i=0;i<CAM.length-1;i++){
+    var a = CAM[i], b = CAM[i+1];
+    if (t >= a.t && t <= b.t){
+      var u = easeInOut((t - a.t) / Math.max(1e-6, b.t - a.t));
+      return { z: lerp(a.z,b.z,u), dim: lerp(a.dim,b.dim,u) };
+    }
+  }
+  return CAM[CAM.length-1];
+}
+
+/* ---------- 功能提示卡 ---------- */
+var FEATS = [
+  { a: 0.2,  b: 6.2,  tag:"01 · 工作区", title:"多工作区\n各管各的",
+    sub:"标签页切换，列结构和内容完全独立\n课表 / 待办 / 生活，互不干扰", pos:[1360,455] },
+  { a: 6.4,  b:12.2,  tag:"02 · 互不干扰", title:"换回去\n内容还在",
+    sub:"切回「课表」，六列课表原封不动\n每个工作区各自保存自己的结构", pos:[1360,455] },
+  { a:12.6,  b:16.1,  tag:"03 · 收束", title:"一个工作区\n一件事",
+    sub:"标签上的金点表示「这里有内容」\n双击改名，✕ 删除（会先确认）", pos:[1360,455] },
+  { a:16.3,  b:22.1,  tag:"04 · 增删行列", title:"行列自由\n增删",
+    sub:"添加行：新行从下方插入\n添加列：先建列，再选类型", pos:[1360,440] },
+  { a:22.3,  b:26.2,  tag:"05 · 列类型", title:"每列可选\n文本框 / 勾选框",
+    sub:"勾选框列点一下就打勾\n文本框列点击后用软键盘输入", pos:[1360,440] },
+  { a:26.4,  b:32.0,  tag:"06 · 删除", title:"删错了\n再加回来",
+    sub:"删除列时整列向右收拢\n所有改动实时保存，不用手动保存", pos:[1360,455] }
+];
+
+/* ==========================================================================
+   渲染
+   ========================================================================== */
+var $ = function(id){ return document.getElementById(id); };
+var elWorld, elPanel, elStrip, elWsAdd, elAddRow, elAddCol, elDelRow, elGrid,
+    elPopup, elArea, elCursor, elFeat, elFeatTag, elFeatTitle, elFeatSub,
+    elRows, elWalkerBox, elWalkerFlip, elWalkerFig, elHint;
+
+/* 由 t 决定的工作区状态 */
+function wsState(t){
+  if (t < 16.0){
+    var adds = 0, active = 0;
+    for (var i=0;i<WS_TL.length;i++){
+      var e = WS_TL[i];
+      if (t >= e.t){
+        if (e.act === "add") adds++;
+        else if (e.act === "switch") active = e.i;
+      }
+    }
+    return { n:adds, active:active };
+  }
+  return { n:3, active:0 };
+}
+
+/* 表格增删状态（镜头 5） */
+function colState(t){
+  var extraRows = 0, popup = 0, tickSel = 0, committed = 0, delcol = 0;
+  for (var i=0;i<COL_TL.length;i++){
+    var e = COL_TL[i];
+    if (t < e.t) break;
+    switch(e.act){
+      case "addrow":    extraRows++; break;
+      case "openpopup": popup = 1; break;
+      case "typeTick":  popup = 2; break;
+      case "commitcol": popup = 0; committed = 1; break;
+      case "col2":      committed = 2; break;
+      case "delcol":    delcol = 1; break;
+    }
+  }
+  // 提交瞬间的动画进度
+  var commitU = 0;
+  var cT = beat(44);
+  if (t >= cT) commitU = seg(t, cT, cT + 0.45);
+  var c2U = 0, c2T = beat(46);
+  if (t >= c2T) c2U = seg(t, c2T, c2T + 0.4);
+  var delU = 0, dT = beat(52);
+  if (t >= dT) delU = seg(t, dT, dT + 0.4);
+  return { extraRows:extraRows, popup:popup, tickSel:tickSel, committed:committed,
+           commitU:commitU, c2U:c2U, delU:delU };
+}
+
+function buildTabs(st){
+  var el = elStrip;
+  // 数量变化时重建
+  if (el.__n !== st.n){
+    el.innerHTML = "";
+    for (var i=0;i<st.n;i++){
+      var b = document.createElement("div");
+      b.className = "ws-tab";
+      b.innerHTML = '<span class="ws-name"></span><span class="ws-dot"></span><span class="ws-x">✕</span>';
+      el.appendChild(b);
+    }
+    el.__n = st.n;
+  }
+  for (var j=0;j<st.n;j++){
+    var node = el.children[j];
+    var w = WS[j] || WS[0];
+    var nameEl = node.querySelector(".ws-name");
+    if (nameEl.__s !== w.name) nameEl.textContent = w.name;
+    var on = (j === st.active);
+    if (node.__on !== on){ node.classList.toggle("on", on); node.__on = on; }
+    // 有内容 → 显示金点
+    var hasDot = (j <= st.active) || (j < 1) || true;
+    var dot = node.querySelector(".ws-dot");
+    var showDot = (j < st.n);
+    if (dot.__sh !== showDot){ dot.style.display = showDot ? "" : "none"; dot.__sh = showDot; }
+    // 新标签的出现动画
+    var appT = 0;
+    for (var m=0;m<WS_TL.length;m++){
+      if (WS_TL[m].act === "add" && WS_TL[m].t <= 16.0){
+        if (WS_TL.filter(function(x){return x.act==="add";}).indexOf(WS_TL[m]) === j) appT = WS_TL[m].t;
+      }
+    }
+    var u = appT ? seg(T, appT, appT + 0.38, easeBack) : 1;
+    node.style.transform = "translateY(" + (14 * (1 - u)).toFixed(2) + "px)";
+    node.style.opacity = (appT ? clamp01((T - appT) / 0.2) : 1).toFixed(3);
+  }
+}
+
+function buildGrid(t){
+  var st = wsState(t);
+  var cs = colState(t);
+  var w = WS[st.active];
+  var cols = w.cols.slice();
+  var rows = w.rows.map(function(r){ return r.slice(); });
+
+  // 镜头 5 只在「课表」上做增删演示
+  var inShot5 = (t >= 15.4);
+  if (inShot5 && st.active === 0){
+    for (var i=0;i<cs.extraRows;i++) rows.push(["新课程","—","—",0,0,0]);
+    if (cs.committed >= 1) cols.push({ t:"备注", k: cs.committed>=1 ? "tick" : "text", isNew:true });
+    if (cs.committed >= 2) cols.push({ t:"教师", k:"text", isNew:true });
+    if (cs.delU > 0) cols.splice(cols.length - 1, 1);
+  }
+
+  elArea.style.setProperty("--table-area-height",
+    Math.min(58 + rows.length * 46 + 6, 422) + "px");
+
+  // 表头
+  var head = '<div class="grid-head">';
+  for (var c=0;c<cols.length;c++){
+    var cd = cols[c];
+    var ico = cd.k === "tick" ? "✓" : "T";
+    var isNew = cd.isNew && cs.commitU < 1;
+    var nu = cd.t === "备注" ? cs.commitU : (cd.t === "教师" ? cs.c2U : 1);
+    var op = isNew ? 0.15 + 0.85 * nu : 1;
+    head += '<div class="col" style="flex:1 1 0;opacity:' + op.toFixed(3) + '">' +
+            '<span class="col-type-icon">' + ico + '</span>' + cd.t + '</div>';
+  }
+  head += '</div>';
+
+  // 行
+  var body = "";
+  for (var r=0;r<rows.length;r++){
+    var even = (r % 2 === 1) ? " even" : "";
+    var isNewRow = (inShot5 && st.active === 0 && r >= w.rows.length);
+    var idx = r - w.rows.length;
+    var appT = idx >= 0 ? beat(32 + idx * 2) : 0;
+    var ru = isNewRow ? seg(t, appT, appT + 0.4, easeOut) : 1;
+    var ro = isNewRow ? clamp01((t - appT) / 0.25) : 1;
+    body += '<div class="grid-row' + even + '" style="opacity:' + ro.toFixed(3) +
+            ';transform:translateY(' + (26 * (1 - ru)).toFixed(2) + 'px)">';
+    for (var c2=0;c2<cols.length;c2++){
+      var col = cols[c2];
+      var v = rows[r][c2];
+      if (col.k === "tick"){
+        body += '<div class="grid-cell tick" style="flex:1 1 0"><span class="tickbox' +
+                (v ? " on" : "") + '"></span></div>';
+      } else {
+        body += '<div class="grid-cell' + (c2===2?' sec':'') + '" style="flex:1 1 0">' +
+                (v === undefined ? "" : v) + '</div>';
+      }
+    }
+    body += '</div>';
+  }
+  var html = head + body;
+  if (elGrid.__h !== html){ elGrid.innerHTML = html; elGrid.__h = html; }
+}
+
+function buildPopup(t){
+  var cs = colState(t);
+  if (!cs.popup){ if (elPopup.__sh !== 0){ elPopup.style.display = "none"; elPopup.__sh = 0; } return; }
+  if (elPopup.__sh !== 1){
+    elPopup.innerHTML =
+      '<h4>添加列</h4>' +
+      '<div class="field" id="pp-name">备注<span class="caret"></span></div>' +
+      '<div class="types">' +
+        '<div class="type" id="pp-t1">T 文本框</div>' +
+        '<div class="type" id="pp-t2">✓ 勾选框</div>' +
+      '</div>' +
+      '<div class="ok" id="pp-ok">确定</div>';
+    elPopup.style.display = "block";
+    elPopup.__sh = 1;
+  }
+  var tick = cs.popup === 2;
+  var t1 = elPopup.querySelector("#pp-t1"), t2 = elPopup.querySelector("#pp-t2");
+  t1.classList.toggle("sel", !tick); t2.classList.toggle("sel", tick);
+  // 定位：贴在「添加列」按钮下方
+  elPopup.style.left = "176px";
+  elPopup.style.top  = "44px";
+}
+
+/* 鼠标：位置按时间轴关键点插值（面板内坐标，相对 panel-wrap） */
+var CUR = [
+  { t: 0.30, x: 946, y: 288 },   // 停在工具栏空白处
+  { t: 1.95, x: 878, y: 282 },   // ＋ 新建工作区
+  { t: 3.20, x: 950, y: 240 },   // 悬停「待办」标签
+  { t: 4.10, x: 878, y: 282 },   // 再点 ＋
+  { t: 5.20, x: 1010, y: 240 },
+  { t: 6.30, x: 880, y: 240 },   // 点「课表」
+  { t: 8.30, x: 950, y: 240 },   // 点「待办」
+  { t:10.30, x: 1020, y: 240 },  // 点「生活」
+  { t:12.30, x: 880, y: 240 },   // 点回「课表」
+  { t:13.60, x: 700, y: 420 },
+  { t:16.30, x: 596, y: 288 },   // 添加行
+  { t:17.30, x: 596, y: 288 },   // 再加一行
+  { t:18.30, x: 686, y: 288 },   // 添加列
+  { t:19.60, x: 700, y: 380 },   // 移向弹窗
+  { t:20.40, x: 736, y: 400 },   // 选「勾选框」
+  { t:21.40, x: 736, y: 438 },   // 确定
+  { t:22.30, x: 686, y: 288 },   // 再添加列
+  { t:23.20, x: 706, y: 438 },   // 确定
+  { t:25.40, x: 1030, y: 320 },  // 删除列
+  { t:28.00, x: 700, y: 450 },
+  { t:32.00, x: 560, y: 440 }
+];
+var CLICK_AT = [1.95, 2.00, 4.10, 4.16, 6.30, 6.36, 8.30, 8.36, 10.30, 10.36, 12.30, 12.36,
+                16.30, 16.40, 17.30, 17.40, 18.30, 18.42, 20.40, 21.40, 21.52,
+                22.30, 23.20, 25.40, 25.52];
+
+function cursorAt(t){
+  var p = CUR[0];
+  for (var i=0;i<CUR.length;i++){ if (t >= CUR[i].t) p = CUR[i]; else break; }
+  var q = null;
+  for (var j=0;j<CUR.length-1;j++){ if (t >= CUR[j].t && t <= CUR[j+1].t){ q = CUR[j+1]; break; } }
+  var a = p, b = q || p;
+  var u = (q && b.t > a.t) ? easeInOut((t - a.t) / (b.t - a.t)) : 1;
+  return { x: lerp(a.x, b.x, u), y: lerp(a.y, b.y, u) };
+}
+function clicking(t){
+  for (var i=0;i<CLICK_AT.length;i++){
+    var d = t - CLICK_AT[i];
+    if (d >= 0 && d < 0.20) return true;
+  }
+  return false;
+}
+
+/* 按钮按压态 */
+function setPress(el, on, strong){
+  if (!el) return;
+  if (el.__p !== on){ el.classList.toggle("press", on); el.__p = on; }
+  if (strong !== undefined && el.__s2 !== strong){ el.classList.toggle("press-strong", strong); el.__s2 = strong; }
+}
+function near(t, target, win){
+  return t >= target && t < target + (win || 0.22);
+}
+
+function render(t){
+  T = t;
+  var st = wsState(t);
+  var cs = colState(t);
+
+  // —— 相机：screen = W·z + T，由焦点 F 决定 T = 屏幕中心 - F·z ——
+  // 面板会随加行变高，镜头轴点相应下移（等价于把画面往上摇），
+  // 每加一行抬 22px，保证加行后底部仍在画内。
+  var cam = camAt(t);
+  var camY = CAM_CY + (t >= 15.4 ? cs.extraRows * 26 : 0);
+  var root = document.documentElement.style;
+  root.setProperty("--camera-z", cam.z.toFixed(4));
+  root.setProperty("--focus-dim", cam.dim.toFixed(3));
+  var tx = 960 - CAM_CX * cam.z, ty = 540 - camY * cam.z;
+  elWorld.style.transform = "translate(" + tx.toFixed(2) + "px," + ty.toFixed(2) + "px) scale(" + cam.z.toFixed(4) + ")";
+  // 屏幕坐标换算（光标等屏幕层元素用同一个映射）
+  function toScreen(wx, wy){
+    return { x: wx * cam.z + tx, y: wy * cam.z + ty };
+  }
+
+  buildTabs(st);
+  buildGrid(t);
+  buildPopup(t);
+
+  // —— 工具栏按压 ——
+  setPress(elAddRow, near(t, beat(32)) || near(t, beat(34)) || near(t, beat(36)));
+  setPress(elAddCol, near(t, beat(38)) || near(t, beat(46)));
+  setPress(elWsAdd,  near(t, beat(4)) || near(t, beat(8)));
+  setPress(elPopup.querySelector && elPopup.querySelector("#pp-ok"),
+           near(t, beat(44)) || near(t, beat(47)), false);
+
+  // —— 行数 ——
+  var nrows = WS[st.active].rows.length + ((t >= 15.4 && st.active===0) ? cs.extraRows : 0);
+  setText(elRows, String(nrows));
+
+  // —— 鼠标（世界坐标 → 屏幕坐标，随镜头同步缩放）——
+  var cu = cursorAt(t);
+  var sp = toScreen(850 + cu.x, 170 + cu.y);
+  elCursor.style.left = sp.x.toFixed(1) + "px";
+  elCursor.style.top  = sp.y.toFixed(1) + "px";
+  elCursor.style.transform = "translate(-3px,-2px) scale(" + (0.78 + 0.22 * cam.z).toFixed(3) + ")";
+  var ck = clicking(t);
+  if (elCursor.__ck !== ck){ elCursor.classList.toggle("click", ck); elCursor.__ck = ck; }
+
+  // —— 大肥鱼：走动 + 朝向 ——
+  var cycle = 14.0;                       // 一个来回
+  var ph = (t % cycle) / cycle;
+  var x = ph < 0.5 ? (ph * 2) : (2 - ph * 2);
+  x = easeInOut(x);
+  // 朝向：右行时镜像（原图朝左）
+  var movingRight = ph < 0.5;
+  elWalkerBox.style.setProperty("--walker-x", x.toFixed(4));
+  elWalkerFlip.style.setProperty("--walker-scale", movingRight ? "-1" : "1");
+
+  // —— 右侧功能卡 ——
+  var f = null;
+  for (var i=0;i<FEATS.length;i++){ if (t >= FEATS[i].a && t < FEATS[i].b){ f = FEATS[i]; break; } }
+  if (f){
+    if (elFeat.__cur !== f){
+      elFeat.__cur = f;
+      elFeatTag.textContent = f.tag;
+      elFeatTitle.innerHTML = f.title.replace(/\n/g, "<br>");
+      elFeatSub.innerHTML = f.sub.replace(/\n/g, "<br>");
+      elFeat.style.left = f.pos[0] + "px";
+      elFeat.style.top  = f.pos[1] + "px";
+    }
+    var op = seg(t, f.a, f.a + 0.42) * (1 - seg(t, f.b - 0.4, f.b));
+    if (elFeat.__op !== +op.toFixed(3)){
+      elFeat.style.opacity = op.toFixed(3);
+      elFeat.style.transform = "translateX(" + (26 * (1 - op)).toFixed(1) + "px)";
+      elFeat.__op = +op.toFixed(3);
+    }
+  } else if (elFeat.__op !== 0){
+    elFeat.style.opacity = "0"; elFeat.__op = 0;
+  }
+}
+
+/* ==========================================================================
+   启动 / 调试接口
+   ========================================================================== */
+var T = 0, playing = false, t0 = 0;
+
+function boot(){
+  elWorld = $("world"); elPanel = $("panel"); elStrip = $("ws-strip");
+  elWsAdd = $("ws-add"); elAddRow = $("btn-add-row"); elAddCol = $("btn-add-col");
+  elDelRow = $("btn-del-row"); elGrid = $("grid"); elPopup = $("popup");
+  elArea = $("table-area"); elCursor = $("cursor"); elFeat = $("feat");
+  elFeatTag = $("feat-tag"); elFeatTitle = $("feat-title"); elFeatSub = $("feat-sub");
+  elRows = $("meta-rows"); elWalkerBox = $("walker-box"); elWalkerFlip = $("walker-flip");
+  elWalkerFig = $("walker-fig"); elHint = $("hint-text");
+  render(0);
+}
+boot();
+
+/* 播放模式（人工预览用；渲染脚本走 seek，不依赖它） */
+function play(){
+  playing = true; t0 = performance.now() / 1000 - T;
+  (function loop(){
+    if (!playing) return;
+    var t = performance.now() / 1000 - t0;
+    if (t >= DUR){ render(DUR); playing = false; return; }
+    render(t);
+    requestAnimationFrame(loop);
+  })();
+}
+window.__anim = {
+  seek: function(t){ playing = false; render(Math.max(0, Math.min(DUR, t))); return t; },
+  play: play,
+  stop: function(){ playing = false; },
+  on: boot,
+  DUR: DUR, BEAT: BEAT,
+  beats: (function(){ var a=[]; for (var k=0;k<66;k++) a.push(+beat(k).toFixed(3)); return a; })(),
+  wsState: wsState, colState: colState, camAt: camAt,
+  /* 自检用：返回一帧的语义摘要 */
+  probe: function(t){
+    render(t);
+    var box = document.getElementById("walker-box");
+    return {
+      t:+t.toFixed(3),
+      ws: wsState(t),
+      cols: colState(t),
+      cam: camAt(t),
+      rows: elRows.textContent,
+      walkerX: box.style.getPropertyValue("--walker-x"),
+      walkerScale: elWalkerFlip.style.getPropertyValue("--walker-scale"),
+      feature: elFeat.style.opacity,
+      cursor: { x: elCursor.style.left, y: elCursor.style.top },
+      popup: elPopup.style.display,
+      colsCount: elGrid.querySelectorAll(".grid-head .col").length,
+      rowsCount: elGrid.querySelectorAll(".grid-row").length
+    };
+  }
+};
+</script>
+</body>
+</html>

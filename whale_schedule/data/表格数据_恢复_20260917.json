@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "exportedAt": "2026-09-17T00:00:00.000Z",
+  "note": "由截图还原 —— 课程管理表格壁纸数据",
+  "columnConfig": [
+    { "field": "course",    "title": "课程名称", "editor": "input" },
+    { "field": "yuketang",  "title": "雨课堂",   "editor": "tickCross" },
+    { "field": "yunbanke",  "title": "云班课",   "editor": "tickCross" },
+    { "field": "zhihuishu", "title": "智慧树",   "editor": "tickCross" },
+    { "field": "mooc",      "title": "MOOC",     "editor": "tickCross" },
+    { "field": "cgpt",      "title": "CG平台",   "editor": "tickCross" },
+    { "field": "shiyan",    "title": "实验",     "editor": "tickCross" },
+    { "field": "gongtu",    "title": "工图",     "editor": "tickCross" },
+    { "field": "remark",    "title": "备注",     "editor": "input" },
+    { "field": "xuexitong", "title": "学习通",   "editor": "tickCross" }
+  ],
+  "rows": [
+    { "course": "线性代数",       "yuketang": false, "yunbanke": false, "zhihuishu": false, "mooc": true,  "cgpt": false, "shiyan": false, "gongtu": false, "remark": "数你最灵", "xuexitong": false },
+    { "course": "工科物理",       "yuketang": true,  "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": true,  "gongtu": false, "remark": "",         "xuexitong": false },
+    { "course": "物理化学",       "yuketang": true,  "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": false, "gongtu": false, "remark": "",         "xuexitong": false },
+    { "course": "工程制图",       "yuketang": true,  "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": false, "gongtu": true,  "remark": "",         "xuexitong": false },
+    { "course": "分析化学",       "yuketang": true,  "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": true,  "gongtu": false, "remark": "",         "xuexitong": false },
+    { "course": "计算机网络",     "yuketang": true,  "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": true,  "gongtu": false, "remark": "",         "xuexitong": true  },
+    { "course": "编译原理",       "yuketang": true,  "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": false, "gongtu": false, "remark": "",         "xuexitong": false },
+    { "course": "算法设计与分析", "yuketang": false, "yunbanke": false, "zhihuishu": true,  "mooc": false, "cgpt": true,  "shiyan": false, "gongtu": false, "remark": "",         "xuexitong": false },
+    { "course": "数据库系统原理", "yuketang": false, "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": true,  "shiyan": true,  "gongtu": false, "remark": "",         "xuexitong": false },
+    { "course": "",               "yuketang": false, "yunbanke": false, "zhihuishu": false, "mooc": false, "cgpt": false, "shiyan": false, "gongtu": false, "remark": "",         "xuexitong": false }
+  ]
+}

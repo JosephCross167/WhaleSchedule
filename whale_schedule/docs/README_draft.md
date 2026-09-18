@@ -14,13 +14,13 @@
 
 ## 简介
 
-WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增删行列、切换列类型、存模板、导入导出 JSON，数据自动保存在本地。表格旁边有位会来回走动的**鲸鱼娘**（也叫「大肥鱼」，其实就是本项目的娘化形象），编辑时她会思考、增删行时会惊讶。
+WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增删行列、切换列类型、存模板、导入导出 JSON，数据自动保存在本地。表格旁边有个会来回走动的小角色，编辑时她会思考、增删行时会惊讶。
 
 **全部美术素材与代码均由 AI 生成**，详见 [素材与 AI 生成说明](#素材与-ai-生成说明)。
 
 ### 截图
 
-**整体效果** —— 表格面板浮在壁纸上，上方是工作区标签页，右侧是鲸鱼娘（大肥鱼）：
+**整体效果** —— 表格面板浮在壁纸上，右侧是走动角色：
 
 ![整体效果](whale_schedule/main/assets/preview-1.png)
 
@@ -32,12 +32,6 @@ WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增
 
 ## 功能
 
-**工作区**
-- 表格上方是**浏览器标签样式**的工作区标签页，点标签即切换
-- 每个工作区连**列结构**带**数据**完全独立，内容**实时保存**
-- 标签上带金点表示"这个工作区里有内容"；双击标签重命名，`✕` 删除（删除一律先确认）
-- `＋` 新建工作区，新工作区是空的（单列「内容」），等你载入模板或自己加列
-
 **表格**
 - 点击单元格即编辑；**勾选框单击直接切换**，不需要先选中格子
 - 任意增删行列；首列（课程名称）受保护不可删
@@ -46,17 +40,15 @@ WhaleSchedule 把课程表做成壁纸：直接点单元格就能改内容，增
 
 **模板**
 - 内置三套预设：学习 / 工作 / 生活
-- 可把当前工作区的列结构「保存为模板」，双击 chip 重命名，右键或点 ✕ 删除
-- **载入模板会先弹窗确认** —— 它会把模板的列结构套用到当前工作区，覆盖其现有列结构与内容
+- 可把当前列结构「保存为模板」，右键或点 ✕ 删除；载入模板时**保留能对应的数据**
 
 **数据**
-- 自动存 localStorage，刷新不丢（工作区 + 列结构 + 内容一起存）
+- 自动存 localStorage，刷新不丢
 - 导入 / 导出 JSON
-- 从旧版本升级会自动迁移数据，不丢内容
 
-**鲸鱼娘（大肥鱼）**
-- 就是本项目的娘化形象，4 个表情：微笑 / 开心 / 惊讶 / 思考
-- 沿面板底部来回走，到边缘自动转身；编辑时思考；增删行列、新建/删除工作区时都会给出反应
+**走动角色**
+- 4 个表情：微笑 / 开心 / 惊讶 / 思考
+- 沿面板底部来回走，到边缘自动转身；编辑时思考，增删行时给出反应
 
 **桌面端输入**（见下方专节）
 - 内置**可拖动软键盘**，支持拼音输入中文，候选按字频排序
@@ -93,7 +85,7 @@ Wallpaper Engine 在桌面模式下**不会把键盘事件投递给壁纸页面*
 | `table_y` | slider | 0–100%，默认 20% | 面板垂直位置 |
 | `table_width` | slider | 400–1400 px | 面板宽度 |
 | `table_height` | slider | 300–900 px | 面板高度上限 |
-| `table_scale` | slider | 60–150%，默认 100% | **整体等比缩放**（缩放整张卡片，含边框与鲸鱼娘） |
+| `table_scale` | slider | 60–150%，默认 100% | **整体等比缩放**（缩放整张卡片，含边框与角色） |
 | `table_visible` | checkbox | 默认开 | 取消勾选即隐藏整个表格 |
 
 **优先级：用户属性 > localStorage > 默认值。**
@@ -105,37 +97,31 @@ Wallpaper Engine 在桌面模式下**不会把键盘事件投递给壁纸页面*
 
 1. 下载 / clone 本仓库
 2. 打开 Wallpaper Engine → 「创建壁纸」→ 「打开文件夹」
-3. 选择本仓库中的 **`whale_schedule/main`** 目录（即含 `index.html` 的那一层）
+3. 选择本仓库中的 **`excelwallpaper`** 目录（即含 `index.html` 的那一层）
 4. 应用壁纸即可
 
-> 也可以直接把 `whale_schedule/main` 整个目录拷进 WE 的 projects 目录后刷新。
+> 也可以直接把 `excelwallpaper` 整个目录拷进 WE 的 projects 目录后刷新。
 
 ---
 
 ## 目录结构
 
 ```
-.
-├── README.md
-├── LICENSE
-├── .gitignore
-└── whale_schedule/
-    └── main/                   # ← 壁纸本体，WE 里选这个目录
-    ├── index.html              # 全部逻辑与样式（单文件）
-    ├── assets/                 # README 用的截图
-    ├── data/
-    │   ├── pinyin.1.js         # 拼音字典（394 音节 / 3755 常用字，按字频排序）
-    │   └── pinyin.meta.js      # 字典元信息
-    ├── image/
-    │   ├── background.png      # 背景（3840×2160，精确 16:9）
-    │   ├── chibi-smile.png     # 鲸鱼娘：微笑
-    │   ├── chibi-happy.png     # 鲸鱼娘：开心
-    │   ├── chibi-shock.png     # 鲸鱼娘：惊讶
-    │   └── chibi-think.png     # 鲸鱼娘：思考
-    └── lib/
-        ├── tabulator.min.js    # Tabulator 5.6.1
-        ├── tabulator.min.css
-        └── LICENSE.tabulator.txt
+excelwallpaper/
+├── index.html                  # 全部逻辑与样式（单文件）
+├── data/
+│   ├── pinyin.1.js             # 拼音字典（394 音节 / 3755 常用字，按字频排序）
+│   └── pinyin.meta.js          # 字典元信息
+├── image/
+│   ├── background.png          # 背景（3840×2160，精确 16:9）
+│   ├── chibi-smile.png         # 走动角色：微笑
+│   ├── chibi-happy.png         # 走动角色：开心
+│   ├── chibi-shock.png         # 走动角色：惊讶
+│   └── chibi-think.png         # 走动角色：思考
+└── lib/
+    ├── tabulator.min.js        # Tabulator 5.6.1
+    ├── tabulator.min.css
+    └── LICENSE.tabulator.txt
 ```
 
 ---
@@ -181,9 +167,9 @@ window.wallpaperPropertyListener.applyUserProperties({
 
 ## 素材与 AI 生成说明
 
-**本项目的全部美术素材与代码均由 AI 生成**（背景图、鲸鱼娘（大肥鱼）的四个表情，以及全部 HTML / CSS / JavaScript）。
+**本项目的全部美术素材与代码均由 AI 生成**（背景图、走动角色四个表情，以及全部 HTML / CSS / JavaScript）。
 
-- 背景图与鲸鱼娘立绘由 AI 图像模型生成，再经放大与裁切处理（已裁为精确 16:9）
+- 背景图与角色立绘由 AI 图像模型生成，再经放大与裁切处理（已裁为精确 16:9）
 - 代码由 AI 编写，作者负责需求定义、验证与取舍
 
 因此：
@@ -216,16 +202,15 @@ Pure HTML / CSS / vanilla JavaScript. **No CDN, no network requests at runtime**
 
 **Highlights**
 
-- **Multiple workspaces** as browser-style tabs above the table. Each workspace has its own column layout *and* its own data, saved in real time; rename by double-clicking a tab, delete with `✕` (always asks first)
 - Click any cell to edit; checkboxes toggle with a single click
 - Add / remove rows and columns; per-column type (text or checkbox)
-- Three built-in presets (Study / Work / Life) plus your own saved templates — **loading a template asks for confirmation**, since it overwrites the current workspace's columns and content
-- Auto-saves to `localStorage`; JSON import / export; older data is migrated automatically
-- The project's mascot, **Whale-chan** (aka "Big Fat Fish"), walks along the panel and reacts to your actions
+- Three built-in presets plus your own saved templates
+- Auto-saves to `localStorage`; JSON import / export
+- A chibi character walks along the panel and reacts to your actions
 - **Built-in draggable soft keyboard** with pinyin input (candidates sorted by character frequency) — because Wallpaper Engine does not deliver keyboard events to the wallpaper in desktop mode
 - Adjustable via Wallpaper Engine user properties: position, size, overall scale, and a show/hide toggle
 
-**Install**: Wallpaper Engine → Create Wallpaper → Open Folder → select the `whale_schedule/main` directory.
+**Install**: Wallpaper Engine → Create Wallpaper → Open Folder → select the `excelwallpaper` directory.
 
 **Note on assets**: all artwork and code in this project were **generated by AI**. The only third-party code is Tabulator (MIT).
 

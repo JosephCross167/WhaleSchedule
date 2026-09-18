@@ -24,6 +24,7 @@
   --gold-bright:     #EFCB7C;
   --urgent:          #F7CA4A;
   --danger:          #C25450;
+  --select:          #DCE6FA;   /* 选中态底色（拖放区高亮等复用） */
 
   /* —— 背景与线条 —— */
   --bg-page:         #FFFFFF;
@@ -141,6 +142,10 @@ body{
   --table-top: max(var(--table-y), 58px);
   /* 上限：不超出视口（100vh 为壁纸视口高度），底部留 8px 余量 */
   max-width: calc(100vw - 24px);
+  /* 上限：不超出视口（100vh 为壁纸视口高度），底部留 8px 余量。
+     注意这里【不能】乘 --panel-scale：面板内容高是布局尺寸，视觉高度由 transform 决定；
+     把这个上限乘 scale 会让内容上限跟着缩放放宽，反而让 Tabulator 在缩放时重新计算，
+     把 holder 的 max-height 算歪（实测减数从 58px 变成 87px）。等比缩放只该由 transform 完成。 */
   max-height: calc(100vh - var(--table-top) - 8px);
 
   z-index: 2;
@@ -516,6 +521,20 @@ body{
   color: var(--text-placeholder);
   font-size: 14px;
   font-weight: 500;
+}
+
+/* —— 行区高度由 --holder-h 接管 ——
+   必须用 CSS 规则的 !important 才能压过 Tabulator 的内联样式：
+   它给行区写的是 `height/max-height: calc(100% - 表头高)`，而"表头高"是按
+   【视觉高度】量的（受面板 transform:scale 影响），放大 1.5 倍时被量成 87px
+   （实际布局只有 58px），于是行区被压小、可见行数变少。
+   实测：一次性写内联 !important 会被它随后反复覆盖（MutationObserver 抓到连续
+   多次 style 重写）；而 CSS 规则的 !important 优先级高于非 !important 的内联样式，
+   所以只要它写的没有 !important，就永远盖不过这一条。
+   JS 只负责把 --holder-h 设成「表格区高 − 表头高」，缩放时重设即可。 */
+#course-table .tabulator-tableholder{
+  height: var(--holder-h, auto) !important;
+  max-height: var(--holder-h, none) !important;
 }
 
 /* 滚动条（蓝金体系，不引入新色相） */
@@ -1257,6 +1276,91 @@ body{
   line-height: 1.5;
 }
 
+/* —— 导入 JSON：文件拖放区 ——
+   为什么必须是「拖放」而不是「粘贴」：
+   WE 桌面模式下壁纸收不到键盘事件，file:// 下 navigator.clipboard.readText()
+   又被浏览器禁用（没有权限提示 UI）。所以任何依赖"输入文字"的导入方式都是死的。
+   拖放走的是鼠标事件（WE 正常投递）+ File API（系统调用），是唯一稳的通道。 */
+.json-drop{
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  background: rgba(238, 242, 251, .55);
+  padding: 26px 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.json-drop:hover{
+  border-color: var(--accent);
+  background: #EDF2FC;
+}
+/* 文件拖到窗口上方时高亮（dragenter 加类） */
+.json-drop.over{
+  border-color: var(--accent);
+  border-style: solid;
+  background: #E3ECFC;
+  box-shadow: 0 0 0 4px rgba(76, 123, 224, .16) inset;
+}
+.json-drop .jd-icon{
+  font-size: 30px;
+  line-height: 1;
+  color: var(--primary-light);
+  margin-bottom: 10px;
+}
+.json-drop .jd-main{
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary-dark);
+  margin-bottom: 6px;
+}
+.json-drop .jd-sub{
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.json-drop .jd-pick{
+  margin-top: 12px;
+  display: inline-block;
+}
+/* 备选通道（拖放）的小字说明：别抢主按钮的注意力 */
+.json-drop .jd-alt{
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-placeholder);
+  line-height: 1.5;
+}
+/* 拖放区内不放按钮时，用 span 伪装按钮也行；这里直接用真按钮，避免嵌套点击问题 */
+
+/* 折叠的「粘贴」备选：只在浏览器里可用，默认收起，避免用户以为必须粘贴 */
+.json-paste{ margin-top: 14px; }
+.json-paste summary{
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.json-paste summary:hover{ color: var(--accent); }
+.json-paste[open] summary{ margin-bottom: 8px; }
+.json-paste .paste-warn{
+  font-size: 11.5px;
+  color: var(--text-warning);
+  background: rgba(216, 167, 82, .12);
+  border: 1px solid rgba(216, 167, 82, .45);
+  border-radius: 7px;
+  padding: 6px 9px;
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+/* 拖放区旁边那条「当前走哪个通道」的状态行 */
+.json-status{
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-height: 17px;
+  word-break: break-all;
+}
+.json-status.err{ color: var(--danger); }
+.json-status.ok{ color: var(--link); }
+
 /* 列类型选择：文本框 / 勾选框 */
 .editor-choice{ display: flex; gap: 10px; }
 .editor-choice label{
@@ -1483,10 +1587,31 @@ body{
       <button class="x" id="json-modal-close" type="button" title="关闭">✕</button>
     </div>
     <div class="modal-body">
-      <div class="field">
-        <label for="json-text">粘贴导出的 JSON 内容（含 columnConfig 与 rows）</label>
-        <textarea id="json-text" spellcheck="false" placeholder='{ "columnConfig": [ … ], "rows": [ … ] }'></textarea>
+      <!-- 主通道：系统文件对话框。
+           实测（Wallpaper Engine 桌面模式）：网页拖放事件 dragenter/drop 收不到
+           —— WE 会把拖放吃掉；但 input[type=file] 的系统对话框能正常弹出。
+           所以这里必须让「选择文件」当主角，拖放降级为备选。 -->
+      <div class="json-drop" id="json-drop">
+        <div class="jd-icon">📂</div>
+        <div class="jd-main">点这里选择要导入的 .json 文件</div>
+        <div class="jd-sub">就是工具栏「导出JSON」保存下来的那个文件</div>
+        <button class="btn btn-primary jd-pick" id="json-pick" type="button">选择文件…</button>
+        <div class="jd-alt">也可以把文件拖进这个框（浏览器里可用；壁纸模式下拖放可能没反应）</div>
       </div>
+      <input type="file" id="json-file" accept=".json,application/json" style="display:none">
+      <div class="json-status" id="json-status"></div>
+
+      <!-- 备选通道：粘贴（仅浏览器可用；壁纸模式下剪贴板被浏览器禁用） -->
+      <details class="json-paste">
+        <summary>也可以直接粘贴 JSON 文本（仅浏览器里可用）</summary>
+        <div class="paste-warn">
+          壁纸模式下不要用这个：WE 不向壁纸投递键盘事件，且 file:// 下浏览器禁止网页读取剪贴板，
+          所以文本框里既粘不进也打不出字。请用上面的拖放或「选择文件」。
+        </div>
+        <div class="field" style="margin-bottom:0">
+          <textarea id="json-text" spellcheck="false" placeholder='{ "columnConfig": [ … ], "rows": [ … ] }'></textarea>
+        </div>
+      </details>
     </div>
     <div class="modal-foot">
       <span class="modal-note">导入将覆盖当前表格数据</span>
@@ -1821,6 +1946,69 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     cellEditCancelled: function () { walkerSetEditing(false); }
   };
 
+  /* 给数据列写死像素宽度，让列宽【不再随缩放变化】。
+     --------------------------------------------------------------------------
+     根因：表格用 layout:"fitColumns"，而 Tabulator 量容器用的是
+     getBoundingClientRect()，【会算进 CSS transform】。面板是 transform:scale()，
+     放大 1.5 倍时它以为容器有 1696px 宽，把列铺成 1696px；真实布局宽度只有
+     1131px（clientWidth 不含 transform），于是列被挤出可视区、冒出横向滚动条。
+     实测：scale=1 → client=1131 rect=1131 列总宽=1131；
+           scale=1.5 → client=1131 rect=1696 列总宽=1696（正好 ×1.5）。
+
+     解法：不用 fitColumns 的动态分配，直接按【未缩放布局宽度】给每个数据列写死像素宽，
+     并且每次重算前先把 --panel-scale 归 1 —— 这样量到的一定是真实宽度。
+     试过但不可行的两条路（别再走）：
+       ① 只临时归 1 后调 setColumns、再恢复缩放：Tabulator 内部重算是异步的，
+          恢复早了它就量到放大后的宽度，实测无效（双 rAF 也一样）。
+       ② 用 rAF/延时等它算完：时序不可靠，还会让面板闪一下正常大小。
+     写死宽度则完全绕开"它什么时候量"这个问题。 */
+  function lockColumnWidths() {
+    if (!table || !tableReady) return;
+    var root = document.documentElement;
+    var saved = root.style.getPropertyValue("--panel-scale");
+    var haveSaved = !!saved;
+    var avail = 0;
+    try {
+      // 量之前先归 1：clientWidth 本来就不含 transform，但保险起见同步一次，
+      // 顺便让下面 table.setColumns() 期间的中间态不会出现"放大后的错宽"。
+      root.style.setProperty("--panel-scale", "1");
+      void root.offsetWidth;
+      var holder = document.querySelector("#course-table .tabulator-tableholder");
+      var ctable = document.getElementById("course-table");
+      avail = (ctable && ctable.clientWidth) || (holder && holder.clientWidth) || 0;
+    } catch (e) {
+      avail = 0;
+    } finally {
+      if (haveSaved) root.style.setProperty("--panel-scale", saved);
+      else root.style.removeProperty("--panel-scale");
+    }
+    if (avail < 120) return;                       // 量不到就放弃，保持原状
+
+    // 数据列可用宽度 = 容器宽 - 行首操作列（52，不可缩放）
+    var ACTION_W = 52;
+    var dataAvail = avail - ACTION_W;
+    var cols = state.columnConfig;
+    if (!cols.length) return;
+    // 权重：首列 2、其余 1（与原来的 widthGrow 语义一致），按权重分宽度
+    var totalWeight = 0;
+    for (var i = 0; i < cols.length; i++) totalWeight += (cols[i].field === FIRST_FIELD ? 2 : 1);
+    var unit = dataAvail / totalWeight;
+
+    try {
+      table.setColumns(table.getColumns().map(function (c) {
+        var d = c.getDefinition();
+        if (d.field === ACTION_FIELD) return d;    // 操作列固定 52，不动
+        var cfg = findColumn(d.field);
+        var weight = (cfg && cfg.field === FIRST_FIELD) ? 2 : 1;
+        var w = Math.max(56, Math.round(unit * weight));
+        d.width = w;
+        d.minWidth = 56;
+        delete d.widthGrow;                        // 写死宽度后不能再交给 fitColumns 分配
+        return d;
+      }));
+    } catch (e) { /* 失败不影响功能，最多列宽仍是 fitColumns 的动态值 */ }
+  }
+
   // columnConfig → Tabulator 列定义（每次列结构变化都重新生成）
   function buildColumnDefs() {
     // 行首「操作列」：常显索引 + 醒目的删除按钮（不是 Tabulator 的 rowHeader 选项——
@@ -1882,7 +2070,9 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
         },
         headerSort: true,
         resizable: true,
-        minWidth: 0,
+        // minWidth 必须留一个下限：lockColumnWidths() 会给列写死像素宽，
+        // 若 minWidth=0，窗口变窄时列会被压到几乎看不见。
+        minWidth: 56,
         // editable: true 必须显式声明 —— Tabulator 5 里「点击进入编辑」会先校验
         // 列定义的 editable，仅设 editor 是不够的（否则单击永远不进入编辑态，
         // 表现就是「点文本框没反应 / 刚点就取消」，而 cell.edit() 这类 API 调用却正常）。
@@ -2296,6 +2486,14 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     }
     if (!fromUserProps.visible) applyPanelVisible(L.visible === null ? true : L.visible);
     else if (userPropValue.visible !== null) applyPanelVisible(userPropValue.visible);
+
+    // 缩放会改变面板占用的【视觉】高度，必须据此重算表格区高度上限，
+    // 否则放大后面板会冲出视口（实测 scale=1.5 时底边到 1266，超出 186px）。
+    // force=true：即使算出的高度没变也要重绘，让 Tabulator 在缩放后重新对齐列宽。
+    updateTableAreaHeight(true);
+    // 缩放变了还要让 Tabulator 重新按「真实布局宽度」分配列宽，否则它会用
+    // getBoundingClientRect()（含 transform）把列铺成 scale 倍宽、撑出横向滚动条。
+    reflowColumnsIfScaleChanged();
   }
 
   // 显示 / 隐藏整个面板（用户属性「显示表格」）
@@ -2555,6 +2753,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     // 走动区高度必须 >= 角色可见高度，否则角色会被推出走动区（脚被切/看不见）
     var laneH = Math.round(figH + 16);
     laneH = Math.min(laneH, 560);
+    baseLaneHeight = laneH;                    // 记下基准：缩放的派生高度以它为起点
     doc.style.setProperty("--lane-h", laneH + "px");
     walker.metrics.laneH = laneH;
     updateTableAreaHeight();
@@ -3479,12 +3678,15 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
   var WSTABS_PX       = 46;     // 工作区标签页（与 --wstabs-h 一致）
   var TEMPLATE_PX     = 72;     // 模板区（预设行 + 自定义行）
   var LANE_PX         = 210;    // 走动区（默认值，JS 会按角色尺寸覆写 --lane-h）
+  // 走动区的「基准高度」：由 applyFigureMetrics() 按角色尺寸写入，是全应用唯一的真值。
+  // 缩放只在它之上派生视觉高度，绝不回写它 —— 否则会自我递减（详见 updateTableAreaHeight）。
+  var baseLaneHeight = LANE_PX;
   var HINT_PX         = 28;     // 底部提示行
 
   // 表格区高度随行数变化：行少则面板矮，行多则向下延伸（超出后表格内部滚动）。
   // 注意：软键盘是可拖动浮窗、不参与这个预算 —— 它压在面板上时由用户自己拖开，
   // 不需要（也不应该）为它调整面板高度，否则「面板多高 / 键盘放哪」会互相纠缠。
-  function updateTableAreaHeight() {
+  function updateTableAreaHeight(force) {
     if (!table) return;
     // 行数很少或为空时保留一段基础高度，避免面板压成一条
     var rows = Math.max(3, table.getRows().length);
@@ -3496,15 +3698,36 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     if (!area || !panel) return;
 
     // 走动区高度优先读实际渲染值（--lane-h 会随角色尺寸变化），读不到再用常量兜底
-    var laneH = (lane && lane.offsetHeight) ? lane.offsetHeight : cssPx("--lane-h", LANE_PX);
+    var measuredLane = (lane && lane.offsetHeight) ? lane.offsetHeight : cssPx("--lane-h", LANE_PX);
 
-    // 面板高度预算：视口可用高度 - 工具栏 - 模板区 - 走动区 - 提示行。
-    // 底部余量取 20px：8px 时面板底边会压到视口下沿（实测提示行溢出面板 1px 被裁掉）。
-    var areaMax = Math.max(120, vh() - 20 - panelTopPx() - laneH - TEMPLATE_PX - WSTABS_PX - TOOLBAR_PX - HINT_PX - 4);
+    // 走动区高度：保持基准高度，不做任何随缩放的收缩。
+    // （曾写过"放大时收缩走动区把高度还给表格"，那是在改布局，已移除。）
+    var zoomLane = baseLaneHeight;
+
+    // 下限不能是随便一个数：必须保证「表头 + 至少一整行」完整可见。
+    // = 表头 58 + 一行 46 + 边框余量 6 = 110。
+    var TABLE_MIN_H = TABLE_HEADER_PX + TABLE_ROW_PX + 6;
+    // ★ 高度预算【除以 scale 再乘回来】的弯路走过，结论记在这里：
+    //   - 除 scale：表格区被压小 → 可见行数随缩放递减、凭空冒出滚动条（用户抱怨的就是这个）
+    //   - 不除：内容高与 100% 一致，放大后每行占屏更多 → 可见行数同样递减
+    //   两者都错，因为「行数守恒」不是靠表格区高度能解决的。
+    //   真正起作用的是 .table-panel 的 max-height（已乘 --panel-scale），
+    //   它按视觉空间限制面板内容高度，表格区只要给足 wanted、剩下的交给 max-height 收口。
+    //   于是 n 行工作区在每一档缩放下都呈现同样的内容布局，放大只是整体变大、
+    //   超出视口的部分被屏幕裁掉 —— 这才是"等比缩放"。
+    var areaMax = Math.max(TABLE_MIN_H, vh() - 20 - panelTopPx() - zoomLane - TEMPLATE_PX - WSTABS_PX - TOOLBAR_PX - HINT_PX - 4);
 
     var finalH = Math.round(Math.min(wanted, areaMax));
     var prev = parseFloat(doc_css("--table-area-height"));
-    if (!isNaN(prev) && Math.abs(prev - finalH) < 0.5) return;   // 高度没变则什么都不做
+    // 高度没变时不重复写值、也不重复重绘 —— 这个提前退出对性能有意义：
+    // 编辑单元格时高频触发的 persistData() 也会走到这里，每次都 redraw 会打断编辑。
+    // 但「切换工作区」和「改缩放」这两种情况必须无条件重算 + 重绘，调用方传 force=true。
+    // ★ 注意：提前退出前也要锁行区高度 —— 否则"高度没变"的路径上永远锁不上，
+    //   缩放时行区仍会被 Tabulator 按视觉表头高压小（踩过这个坑）。
+    if (!force && !isNaN(prev) && Math.abs(prev - finalH) < 0.5) {
+      lockHolderHeightFromArea();
+      return;
+    }
     document.documentElement.style.setProperty("--table-area-height", finalH + "px");
 
     // 表格内部布局重算（列宽 / 表头对齐）。
@@ -3515,6 +3738,46 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     if (tableReady && !editorIsOpen()) {
       try { table.redraw(true); } catch (e) { /* 忽略 */ }
     }
+    lockHolderHeightFromArea();             // 行区高度也要锁，见函数注释
+  }
+
+  /* 锁死行区（.tabulator-tableholder）的高度，使「可见行数」不随缩放变化。
+     --------------------------------------------------------------------------
+     根因：Tabulator 会自己给行区写 `max-height: calc(100% - 表头高)`，而"表头高"
+     它是按【视觉高度】量的（受 CSS transform 影响）。面板 transform:scale(1.5) 时
+     表头被量成 87px（实际布局只有 58px），于是 max-height 变成 calc(100% - 87px)，
+     行区被压小：实测 437 → 420(130%) → 408(150%)，可见行数从 9 掉到 8。
+     这和列宽被撑成 scale 倍是同一个病根：**Tabulator 用视觉尺寸做布局计算**。
+
+     解法：把行区高度交给 CSS 变量 --holder-h，由样式表用 !important 声明
+     （见 #course-table .tabulator-tableholder 那条规则）。
+     为什么不直接写内联 !important：Tabulator 在锁定之后还会【反复重写 style 属性】，
+     把内联 !important 一起冲掉（MutationObserver 实测抓到连续多次覆盖）。
+     而 CSS 规则的 !important 优先级高于非 !important 的内联样式，它盖不过。
+     实测接管后 100%/130%/150% 行区高度恒为 437px、可见行恒为 9 行。 */
+  function lockHolderHeight() {
+    if (!table || !tableReady) return;
+    var th = document.querySelector("#course-table .tabulator-tableholder");
+    var area = document.querySelector(".table-area");
+    var header = document.querySelector("#course-table .tabulator-header");
+    if (!th || !area) return;
+    var h = area.clientHeight - (header ? header.offsetHeight : TABLE_HEADER_PX);
+    if (!(h > 0)) return;
+    var cur = parseFloat(doc_css("--holder-h"));
+    if (!isNaN(cur) && Math.abs(cur - h) < 0.5) return;    // 值没变就不重复写
+    document.documentElement.style.setProperty("--holder-h", Math.round(h) + "px");
+  }
+
+  /* 先清掉 --holder-h，让行区按「表格区 − 表头」自然算一次，再把结果锁回去。
+     为什么必须清：--holder-h 是全局 CSS 变量，切到行数更少的工作区时表格区变矮，
+     但旧值还挂着 !important，行区就会停在上一工作区的高度（实测 3 行工作区被
+     锁成 437px/9 行，明显不对）。所以每次结构变化都从"干净状态"重新量一次。 */
+  function lockHolderHeightFromArea() {
+    if (!table || !tableReady) return;
+    var root = document.documentElement;
+    root.style.removeProperty("--holder-h");
+    void root.offsetWidth;                                 // 强制同步重排，拿到真实高度
+    lockHolderHeight();
   }
 
   function doc_css(name) {
@@ -4017,7 +4280,29 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     table.setData(state.rows).then(function () {
       persistData();
       syncRowIndexes();
+      lockColumnWidths();                  // 列变了要重新按容器宽度写死各列像素宽
+      // 必须等 setData 的 Promise 落地后再按【新】行数重算表格区高度。
+      // 之前漏了这一步：persistData() 里虽然也调了 updateTableAreaHeight()，
+      // 但那是在 setData 还没渲染完时执行的，table.getRows() 读到的还是
+      // 【上一个工作区】的行数，于是高度一直按旧行数算。
+      // 表现就是「从行列多的工作区切到少的再切回来，表格区高度和行距都停在
+      // 另一个工作区的值上」—— 实测三个工作区(6/1/3 行)切换后高度全是 202px。
+      // force=true：列结构变了，即使算出的高度恰好相同也必须重绘一次，
+      // 否则列宽/表头对齐会沿用上一个工作区的布局。
+      updateTableAreaHeight(true);
     });
+  }
+
+  // 只在缩放值「真的变了」时才重算列宽/行区高度 —— applyLayout() 可能被频繁调用，
+  // 每次都重建列会白白抖一下，所以用 lastReflowScale 记住上次重算时的缩放。
+  var lastReflowScale = -1;
+  function reflowColumnsIfScaleChanged() {
+    var cur = parseFloat(doc_css("--panel-scale"));
+    if (isNaN(cur) || cur <= 0) cur = 1;
+    if (Math.abs(cur - lastReflowScale) < 0.001) return;
+    lastReflowScale = cur;
+    lockColumnWidths();
+    lockHolderHeightFromArea();            // 缩放后重新量一次行区高度（会用同一个公式锁住）
   }
 
   /* ======================================================================
@@ -4342,30 +4627,48 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
 
   function openJsonModal() {
     $("json-text").value = "";
+    jsonSetStatus("", "");
     $("json-modal").classList.add("open");
+    // 隐藏的 file input 每次打开都清空：否则连续导入「同一个文件」不会再触发 change
+    var fi = $("json-file");
+    if (fi) fi.value = "";
     setTimeout(function () { $("json-text").focus(); }, 30);
   }
 
   function closeJsonModal() { $("json-modal").classList.remove("open"); }
 
-  // 导入 JSON：严格校验结构，避免脏数据破坏表格
-  function importJSON() {
-    var text = $("json-text").value.trim();
-    if (!text) { toast("请先粘贴 JSON 内容", true); return; }
+  // 拖放区下方那行状态文字（比 toast 更容易看到，且能一直留在弹窗里）
+  function jsonSetStatus(msg, cls) {
+    var el = $("json-status");
+    if (!el) return;
+    el.textContent = msg || "";
+    el.className = "json-status" + (cls ? " " + cls : "");
+  }
+
+  // 从文本导入（粘贴通道与文件通道共用）
+  // 返回 true 表示导入成功；false 表示校验失败（调用方决定怎么提示）
+  function importJSONText(text) {
+    text = String(text || "").trim();
+    if (!text) return false;
 
     var parsed;
     try {
       parsed = JSON.parse(text);
     } catch (e) {
       toast("JSON 解析失败：格式不正确", true);
-      return;
+      jsonSetStatus("JSON 格式不正确，无法解析", "err");
+      return false;
     }
 
     // 兼容两种格式：{columnConfig, rows} 或 直接是行数组
     var colCfg = (parsed && Array.isArray(parsed.columnConfig)) ? parsed.columnConfig : null;
     var rows = (parsed && Array.isArray(parsed.rows)) ? parsed.rows
              : (Array.isArray(parsed) ? parsed : null);
-    if (!rows) { toast("JSON 中缺少 rows 字段", true); return; }
+    if (!rows) {
+      toast("JSON 中缺少 rows 字段", true);
+      jsonSetStatus("这个文件里没有 rows 字段，可能不是本壁纸导出的文件", "err");
+      return false;
+    }
 
     // 无 columnConfig 时，从数据键推导列结构（统一按文本框处理）
     if (!colCfg || !colCfg.length) {
@@ -4375,12 +4678,20 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
           Object.keys(r).forEach(function (k) { if (keys.indexOf(k) === -1) keys.push(k); });
         }
       });
-      if (!keys.length) { toast("无法从 JSON 中推导列结构", true); return; }
+      if (!keys.length) {
+        toast("无法从 JSON 中推导列结构", true);
+        jsonSetStatus("既没有 columnConfig，数据里也没有可用的字段名", "err");
+        return false;
+      }
       colCfg = keys.map(function (k) { return { field: k, title: k, editor: "input" }; });
     }
 
     var newCols = normalizeColumns(colCfg);
-    if (!newCols.length) { toast("列配置无效", true); return; }
+    if (!newCols.length) {
+      toast("列配置无效", true);
+      jsonSetStatus("columnConfig 里缺少有效的 field / title", "err");
+      return false;
+    }
 
     state.columnConfig = newCols;
     state.rows = rows.filter(function (r) { return r && typeof r === "object"; }).map(function (r) {
@@ -4400,6 +4711,119 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     renderTemplates();
     walkerReact("think");                  // 切换视图 → 思考表情
     toast("已导入 " + state.rows.length + " 行 / " + newCols.length + " 列");
+    return true;
+  }
+
+  // 「导入」按钮：优先读文本框（浏览器场景）
+  function importJSON() {
+    var text = $("json-text").value.trim();
+    if (!text) {
+      // 不能再说「请先粘贴」—— 壁纸模式下根本粘不了；也不能只说拖放，
+      // 因为实测 WE 不投递网页拖放事件，能用的只有系统文件对话框。
+      toast("请点上方的「选择文件…」挑一个 .json 文件", true);
+      jsonSetStatus("文本框是空的。请点上面的「选择文件…」，或把文件拖进虚线框（浏览器）。", "err");
+      return;
+    }
+    importJSONText(text);
+  }
+
+  // 文件通道：拖放 / 选择文件 最终都走这里
+  var JSON_MAX_BYTES = 8 * 1024 * 1024;      // 8MB 上限，够几万行表格
+  function handleJsonFile(file) {
+    if (!file) { jsonSetStatus("没有拿到文件", "err"); return; }
+    var name = file.name || "(未命名)";
+    if (file.size > JSON_MAX_BYTES) {
+      jsonSetStatus("文件太大（" + (file.size / 1048576).toFixed(1) + " MB），上限 8 MB", "err");
+      return;
+    }
+    // 后缀/类型只做提示，不据此拒绝 —— 有些系统对 .json 的 MIME 判定不准
+    jsonSetStatus("正在读取 " + name + " …", "");
+    var fr = new FileReader();
+    fr.onerror = function () { jsonSetStatus("读取文件失败：" + name, "err"); };
+    fr.onload = function () {
+      var ok = false;
+      try { ok = importJSONText(String(fr.result || "")); }
+      catch (e) { jsonSetStatus("导入出错：" + (e && e.message ? e.message : e), "err"); return; }
+      if (!ok) jsonSetStatus("导入失败：" + name + "（详情见上方提示）", "err");
+    };
+    try { fr.readAsText(file, "utf-8"); }
+    catch (e) { jsonSetStatus("无法读取该文件：" + (e && e.message ? e.message : e), "err"); }
+  }
+
+  /* —— 导入 JSON 的文件通道绑定 ——
+     为什么要做「整窗都是投放区」而不是只认那个虚线框：
+     用户第一次拖的时候很难精确落在框里，落在描边外就变成"浏览器打开文件"。
+     所以策略是：整窗接收 drag 事件并 preventDefault（吃掉浏览器的默认打开行为），
+     落在虚线框内才真正导入；落在框外只给一句提示，不报错。 */
+  function initJsonDrop() {
+    var drop = $("json-drop");
+    var pick = $("json-pick");
+    var input = $("json-file");
+    // 元素缺失不致命：下面每一步都有判空，缺哪个就少哪条通道
+
+    // 整窗拦截：阻止浏览器把拖入的文件当作导航目标
+    ["dragenter", "dragover"].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (!e.dataTransfer) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+      }, false);
+    });
+    document.addEventListener("drop", function (e) {
+      if (!e.dataTransfer) return;
+      e.preventDefault();                 // 无论如何都不让浏览器打开这个文件
+      if (!drop) return;
+      if (drop.contains(e.target)) return; // 框内的 drop 由框自己的处理器负责
+      toast("请点「选择文件…」挑一个 .json 文件", true);
+      jsonSetStatus("文件落在了框外。请点上面的「选择文件…」按钮。", "err");
+    }, false);
+
+    // 虚线框自己的高亮与投放
+    if (drop) {
+      drop.addEventListener("dragenter", function (e) { e.preventDefault(); drop.classList.add("over"); });
+      drop.addEventListener("dragover", function (e) { e.preventDefault(); drop.classList.add("over"); });
+      drop.addEventListener("dragleave", function (e) {
+        // 移出到子元素上也会触发 dragleave，用 relatedTarget 判断是否真的离开了框
+        if (!drop.contains(e.relatedTarget)) drop.classList.remove("over");
+      });
+      drop.addEventListener("drop", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        drop.classList.remove("over");
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (!files || !files.length) {
+          // 可能是拖了文本而不是文件
+          var t = e.dataTransfer ? e.dataTransfer.getData("text/plain") : "";
+          if (t && t.trim()) { importJSONText(t); return; }
+          jsonSetStatus("没有检测到文件，请拖 .json 文件（不是文件夹）", "err");
+          return;
+        }
+        handleJsonFile(files[0]);
+      });
+    }
+
+    // 「选择文件…」→ 系统文件对话框
+    // 这是 WE 桌面模式下【唯一实测可用】的通道（2026-09-17 实测：网页拖放收不到，
+    // 但 input[type=file] 的系统对话框能正常弹出并被用户选中）。
+    if (pick && input) {
+      pick.addEventListener("click", function (e) {
+        e.stopPropagation();              // 别让冒泡到虚线框再触发一次
+        input.value = "";
+        input.click();
+      });
+    }
+    // 点虚线框空白处也等同于选择文件
+    if (drop && input) {
+      drop.addEventListener("click", function () {
+        input.value = "";
+        input.click();
+      });
+    }
+    if (input) {
+      input.addEventListener("change", function () {
+        if (input.files && input.files.length) handleJsonFile(input.files[0]);
+      });
+    }
   }
 
   /* ======================================================================
@@ -4474,6 +4898,12 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     $("btn-export").addEventListener("click", exportJSON);
     $("btn-import").addEventListener("click", openJsonModal);
     $("btn-save-template").addEventListener("click", saveAsTemplate);
+
+    // 导入 JSON：文件通道（拖放 / 选择文件）
+    // 注意：必须阻止「把文件拖到窗口上」的浏览器默认行为，否则浏览器会直接
+    // 打开那个文件、把壁纸顶掉。所以 dragenter/dragover/drop 在 document 层
+    // 一律 preventDefault；只有落在拖放区上的 drop 才真的处理。
+    initJsonDrop();
 
     // 软键盘开关
     $("btn-skb").addEventListener("click", skbToggle);
@@ -4829,6 +5259,8 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
       setExpression: setExpression,
       applyFigureMetrics: applyFigureMetrics,
       refreshHeight: updateTableAreaHeight,
+      applyLayout: applyLayout,                     // 改缩放/位置后收口（用户属性与拖拽都走它）
+      lockColumns: lockColumnWidths,                // 单独可调，便于验证列宽锁定
       persist: persistData
     };
   }
