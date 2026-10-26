@@ -3752,7 +3752,7 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     // ★ 注意：提前退出前也要锁行区高度 —— 否则"高度没变"的路径上永远锁不上，
     //   缩放时行区仍会被 Tabulator 按视觉表头高压小（踩过这个坑）。
     if (!force && !isNaN(prev) && Math.abs(prev - finalH) < 0.5) {
-      lockHolderHeightFromArea();
+      setHolderHeight(holderHeightFor(finalH));
       return;
     }
     document.documentElement.style.setProperty("--table-area-height", finalH + "px");
@@ -3765,7 +3765,8 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     if (tableReady && !editorIsOpen()) {
       try { table.redraw(true); } catch (e) { /* 忽略 */ }
     }
-    lockHolderHeightFromArea();             // 行区高度也要锁，见函数注释
+    // 行区高度按【目标高度】算，不能量 area.clientHeight：见 holderHeightFor 的注释
+    setHolderHeight(holderHeightFor(finalH));
   }
 
   /* 锁死行区（.tabulator-tableholder）的高度，使「可见行数」不随缩放变化。
@@ -3782,29 +3783,38 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
      把内联 !important 一起冲掉（MutationObserver 实测抓到连续多次覆盖）。
      而 CSS 规则的 !important 优先级高于非 !important 的内联样式，它盖不过。
      实测接管后 100%/130%/150% 行区高度恒为 437px、可见行恒为 9 行。 */
-  function lockHolderHeight() {
-    if (!table || !tableReady) return;
-    var th = document.querySelector("#course-table .tabulator-tableholder");
-    var area = document.querySelector(".table-area");
+  // ★ 为什么不能量 .table-area 的 clientHeight（重要）：
+  //   .table-area 有 `transition: height .18s ease`（增删行时平滑伸缩）。
+  //   若刚写完 --table-area-height 就量，读到的是过渡的【起点】（旧高度），
+  //   于是 --holder-h 永远慢一拍：切到行少的工作区，行区还停在上一工作区的 437px，
+  //   表格显示区域看起来"没刷新"（实测复现）。所以一律用【目标高度】做算术，
+  //   彻底绕开过渡动画。
+  function holderHeightFor(areaH) {
     var header = document.querySelector("#course-table .tabulator-header");
-    if (!th || !area) return;
-    var h = area.clientHeight - (header ? header.offsetHeight : TABLE_HEADER_PX);
-    if (!(h > 0)) return;
-    var cur = parseFloat(doc_css("--holder-h"));
-    if (!isNaN(cur) && Math.abs(cur - h) < 0.5) return;    // 值没变就不重复写
-    document.documentElement.style.setProperty("--holder-h", Math.round(h) + "px");
+    var headerH = header ? header.offsetHeight : TABLE_HEADER_PX;
+    var h = Math.round(areaH - headerH);
+    return h > 0 ? h : 0;
   }
 
-  /* 先清掉 --holder-h，让行区按「表格区 − 表头」自然算一次，再把结果锁回去。
-     为什么必须清：--holder-h 是全局 CSS 变量，切到行数更少的工作区时表格区变矮，
-     但旧值还挂着 !important，行区就会停在上一工作区的高度（实测 3 行工作区被
-     锁成 437px/9 行，明显不对）。所以每次结构变化都从"干净状态"重新量一次。 */
+  function setHolderHeight(h) {
+    if (!table || !tableReady || !(h > 0)) return;
+    var cur = parseFloat(doc_css("--holder-h"));
+    if (!isNaN(cur) && Math.abs(cur - h) < 0.5) return;    // 值没变就不重复写
+    document.documentElement.style.setProperty("--holder-h", h + "px");
+  }
+
+  /* 按当前 --table-area-height 重新锁一次行区。
+     用于缩放变化（此时表格区高度不变、没有过渡在跑）；
+     行数变化的地方直接走 holderHeightFor(finalH)，不用这个。 */
   function lockHolderHeightFromArea() {
     if (!table || !tableReady) return;
-    var root = document.documentElement;
-    root.style.removeProperty("--holder-h");
-    void root.offsetWidth;                                 // 强制同步重排，拿到真实高度
-    lockHolderHeight();
+    var areaH = parseFloat(doc_css("--table-area-height"));
+    if (!(areaH > 0)) {
+      // 首次启动时变量还没写入；此时也没有过渡在跑，可以直接量
+      var area = document.querySelector(".table-area");
+      areaH = area ? area.clientHeight : 0;
+    }
+    setHolderHeight(holderHeightFor(areaH));
   }
 
   function doc_css(name) {
