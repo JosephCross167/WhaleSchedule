@@ -149,6 +149,51 @@ Wallpaper Engine 在桌面模式下**不会把键盘事件投递给壁纸页面*
 
 ---
 
+## 宿主嵌入说明（Host embedding notes）
+
+本壁纸默认按「独占一个窗口」设计——也就是 Wallpaper Engine 桌面模式那种环境。
+如果你像 [dsh-wallpaper-engine](https://github.com/elysia395/dsh-wallpaper-engine) 那样把它**嵌进 iframe**
+当作壁纸使用，下面这些行为需要知道（感谢 issue #1 的
+[@YV3507](https://github.com/YV3507) 排查与反馈）。
+
+### 焦点
+
+- 点击面板**空白处**时会请求窗口焦点（`window.focus()`），目的是让文档级快捷键
+  （`Ctrl+S` / `Escape` / `Delete`）能收到。
+- 这个请求**只在「自己是顶层文档」时发出**（`window === window.top`）。被 iframe 嵌时必然为假，
+  因此**不会抢走宿主的键盘焦点**。
+- 元素级聚焦（点单元格后的编辑框、列名 / JSON / 改名输入框）不受此限制，内嵌时照常工作。
+- 宿主侧建议仍自行加一层夺焦围栏——它能覆盖别的壁纸。
+
+### 本地保存
+
+- 数据存在 `localStorage`。若 iframe 是 opaque origin（`sandbox` 严格档、没有 `allow-same-origin`），
+  访问会抛 `SecurityError`：**不会保存**。
+- 这种情况下只在启动时提示**一次**「当前环境不支持本地保存，请用「导出JSON」备份」，不会每次操作都弹。
+- 同源内嵌会**共享** `courseWallpaper.*` 这几个键，多个实例会互相覆盖。
+
+### 视口与缩放
+
+- `position: fixed`、`100vh/100vw`、`window.innerWidth/innerHeight` 全部按 **iframe 自己的视口**解释，
+  只要 iframe 铺满你希望的显示区域就没问题。
+- **缩放 iframe 请用 `width` / `height`，不要用 `transform: scale()`**：面板拖拽按 1:1 鼠标位移计算
+  （`getBoundingClientRect()` 的视觉像素 vs `innerWidth` 的布局像素），transform 缩放会按比例失准；
+  雪 canvas 的分辨率取自 `devicePixelRatio`，也不会跟随 transform（会发糊）。
+
+### 滚轮与键盘
+
+- 若宿主不转发 `wheel`，表格体 / 工作区标签条 / 自定义模板行**只能拖滚动条**；软键盘候选条另有 `‹ ›` 翻页。
+- 若宿主不转发键盘，输入请用工具栏内置的软键盘（桌面模式下本来就是这个用法）。
+
+### 全局副作用
+
+- 会**覆盖** `window.wallpaperPropertyListener`（WE 用户属性接口）。宿主若在同一个 window 上放了同名桥，
+  会被冲掉。
+- 不发起任何网络请求（无 `fetch` / `XHR` / `WebSocket`）；不调用 `alert` / `confirm` / `prompt` /
+  `beforeunload`；不修改 `document.title` / `history` / `location`。
+
+---
+
 ## 参与贡献
 
 **欢迎 PR 和 Issue，非常欢迎。** 这是一个个人小项目，任何形式的反馈我都会看。

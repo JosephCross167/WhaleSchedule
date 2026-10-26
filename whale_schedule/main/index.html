@@ -1844,24 +1844,51 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     return null;
   }
 
+  /* —— localStorage 可用性 ——
+     被以 opaque origin 嵌进 iframe（sandbox 严格档、无 allow-same-origin）时，
+     访问 localStorage 会抛 SecurityError：这是「环境根本不支持」，不是「空间不足」。
+     而 persistData() 在每次编辑单元格、增删行列、切换工作区时都会调用，
+     若每次都弹提示，内嵌宿主里会变成每操作一次弹一次（issue #1 报告的场景）。
+     因此：区分两类失败，且整个会话只提示一次。 */
+  var storageWarned = false;
+  function storageFailKind(e) {
+    var name = e && e.name;
+    if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+        (e && (e.code === 22 || e.code === 1014))) return "quota";
+    return "unsupported";                    // 含 SecurityError
+  }
+  function storageFail(kind) {
+    if (storageWarned) return;               // 只提示一次，不重复打扰
+    storageWarned = true;
+    if (kind === "quota") toast("本地存储空间不足，数据未保存", true);
+    else toast("当前环境不支持本地保存，请用「导出JSON」备份", true);
+  }
+
   function readJSON(key) {
     try {
       var raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : null;
     } catch (e) {
+      // 数据本身损坏（SyntaxError）不是存储环境的问题，只记日志
+      if (e && e.name === "SyntaxError") {
+        console.warn("[课程表] 本地数据格式损坏，已忽略：", e);
+        return null;
+      }
       console.warn("[课程表] 读取本地数据失败：", e);
+      storageFail(storageFailKind(e));
       return null;
     }
   }
 
-  // 写 localStorage：配额不足时提示但不中断交互
+  // 写 localStorage：失败时区分「空间不足」与「环境不支持」，且只提示一次
   function writeJSON(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
     } catch (e) {
-      console.warn("[课程表] 本地保存失败（可能超出配额）：", e);
-      toast("本地存储空间不足，数据未保存", true);
+      var kind = storageFailKind(e);
+      console.warn("[课程表] 本地保存失败（" + kind + "）：", e);
+      storageFail(kind);
       return false;
     }
   }
@@ -5042,9 +5069,14 @@ window.PINYIN_CHUNK = function (idx, pairs) { window.__PINYIN_QUEUE.push(pairs);
     }, true);
     // ③ 点击壁纸空白处时请求文档焦点（编辑器已打开时绝不能再抢焦点，
     //    否则会把输入框的焦点夺走，导致无法输入）
+    // 只在「自己是顶层文档」时请求：被别的页面嵌进 iframe 时，window.focus() 会把
+    // 宿主窗口的键盘焦点搬进壁纸帧（issue #1：宿主合成事件注入时，它的输入框会
+    // focusout）。WE 桌面模式下壁纸就是顶层文档 → 守卫恒为真；内嵌时必然为假。
+    // 注意只管帧级；元素级聚焦（focusEditor、各输入框）不受影响，内嵌时照常工作。
     document.addEventListener("mousedown", function (e) {
       if (editorIsOpen()) return;
       if (closestEl(e.target, ".tabulator-cell")) return;   // 点单元格交给编辑器自己聚焦
+      if (window !== window.top) return;                    // 内嵌：不抢宿主焦点
       try { if (window.focus) window.focus(); } catch (err) { /* 忽略 */ }
     }, true);
     // ④ 面板内任意按键也作为键盘可用的证据
